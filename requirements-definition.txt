@@ -19,6 +19,11 @@ BATSUGAKU (バツガク) - 要件定義書
 - フォロワーの監視による心理的プレッシャーで学習継続を促進
 - ストリーク（連続学習日数）とバッジでモチベーション維持
 
+【ビジネスモデル】
+- 月額300円のサブスクリプション
+- 決済方法: Apple In-App Purchase (iOS) + RevenueCat
+- 管理者・開発者はサブスク不要で全機能利用可能
+
 【ターゲットユーザー】
 - プログラミング学習中のエンジニア志望者
 - 収入目標を持つ駆け出しエンジニア
@@ -36,6 +41,10 @@ BATSUGAKU (バツガク) - 要件定義書
 - Firebase Authentication (認証)
 - Cloud Firestore (データベース)
 - Firebase Cloud Messaging (プッシュ通知)
+
+【課金・サブスクリプション】
+- Apple In-App Purchase (iOS課金)
+- RevenueCat (課金管理SDK - IAP実装を簡略化)
 
 【認証】
 - Google OAuth 2.0 (メイン認証)
@@ -192,6 +201,37 @@ BATSUGAKU (バツガク) - 要件定義書
 - push検出時: お疲れ様通知
 - ストリーク達成時: 祝福通知
 
+--------------------------------------------------------------------------------
+3.8 サブスクリプション機能 ※未実装
+--------------------------------------------------------------------------------
+
+【プラン】
+- 月額300円（税込）
+
+【決済】
+- Apple In-App Purchase使用（iOS必須要件）
+- RevenueCatで購入状態管理
+- 購入・復元機能
+
+【サブスク画面】
+- Paywall画面（購入促進）
+- 購入状態の表示
+- 解約方法の案内（App Store設定へ誘導）
+
+【サブスク状態管理】
+- 購入状態のFirestore同期
+- アクティブ/期限切れの判定
+
+【アクセス制御】
+- 未購入ユーザー: 機能制限（日次チェック不可、統計閲覧のみ）
+- 購入ユーザー: 全機能利用可能
+- 管理者/開発者: サブスク不要で全機能利用可能（isAdmin フラグで判定）
+
+【管理者バイパス機能】
+- Firestoreの User.isAdmin フラグで判定
+- isAdmin: true のユーザーはサブスク状態に関わらず全機能利用可能
+- 管理者フラグは Firebase Console または Cloud Functions で設定
+
 ================================================================================
 4. 非機能要件
 ================================================================================
@@ -238,6 +278,15 @@ BATSUGAKU (バツガク) - 要件定義書
 - fcmToken: string | null
 - notificationsEnabled: boolean
 - onboardingCompleted: boolean
+- isAdmin: boolean (管理者フラグ、デフォルト: false)  ← 追加
+- subscription: UserSubscription | null  ← 追加
+
+【UserSubscription】
+- isActive: boolean (サブスクが有効か)
+- productId: string (購入したプランID)
+- purchasedAt: Timestamp (購入日時)
+- expiresAt: Timestamp (有効期限)
+- originalTransactionId: string (Apple取引ID)
 
 【UserGoal】
 - deadline: Timestamp
@@ -293,7 +342,13 @@ BATSUGAKU (バツガク) - 要件定義書
 2. プッシュ通知
 3. 統計の実データ連携
 
-【Phase 5: 品質向上】
+【Phase 5: サブスクリプション】
+1. RevenueCat設定
+2. Paywall画面作成
+3. 購入・復元機能
+4. アクセス制御実装
+
+【Phase 6: 品質向上】
 1. テストカバレッジ80%達成
 2. エラーハンドリング強化
 3. パフォーマンス最適化
@@ -324,6 +379,9 @@ EXPO_PUBLIC_GITHUB_CLIENT_SECRET=
 EXPO_PUBLIC_X_CLIENT_ID=
 EXPO_PUBLIC_X_CLIENT_SECRET=
 
+# RevenueCat (課金管理)
+EXPO_PUBLIC_REVENUECAT_API_KEY=
+
 ================================================================================
 8. 参考リンク
 ================================================================================
@@ -332,5 +390,8 @@ EXPO_PUBLIC_X_CLIENT_SECRET=
 - X API v2 Documentation: https://developer.twitter.com/en/docs/twitter-api
 - Expo AuthSession: https://docs.expo.dev/versions/latest/sdk/auth-session/
 - Firebase Documentation: https://firebase.google.com/docs
+- RevenueCat Documentation: https://docs.revenuecat.com/docs
+- RevenueCat React Native SDK: https://docs.revenuecat.com/docs/reactnative
+- Apple In-App Purchase: https://developer.apple.com/in-app-purchase/
 
 ================================================================================

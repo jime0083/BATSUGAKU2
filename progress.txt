@@ -133,17 +133,42 @@ BATSUGAKU (バツガク) - 実装進捗管理
     - [ ] 日次統計の集計
     - [ ] 管理者向け統計ツイート
 
-■ Phase 9: テスト・品質
+■ Phase 9: サブスクリプション（月額300円）
 --------------------------------------------------------------------------------
-[x] 9.1 ユニットテスト
+[x] 9.0 サブスク基盤                                  完了: 2026-01-20
+    - [x] User型にisAdmin, subscription追加           完了: 2026-01-20
+    - [x] UserSubscription型追加                      完了: 2026-01-20
+    - [x] subscription.ts（アクセス判定ユーティリティ）完了: 2026-01-20
+    - [x] subscriptionテスト（22件）                  完了: 2026-01-20
+[ ] 9.1 RevenueCat設定
+    - [ ] RevenueCatアカウント作成
+    - [ ] App Store Connect設定
+    - [ ] 商品登録（月額300円）
+    - [ ] react-native-purchases導入
+[ ] 9.2 Paywall画面
+    - [ ] 購入促進UI作成
+    - [ ] 価格・特典の表示
+    - [ ] 購入ボタン
+[ ] 9.3 購入・復元機能
+    - [ ] 購入処理の実装
+    - [ ] 復元処理の実装
+    - [ ] 購入状態のFirestore同期
+[ ] 9.4 アクセス制御
+    - [ ] 未購入ユーザーの機能制限
+    - [ ] 期限切れ判定
+    - [ ] 管理者バイパス機能（isAdminフラグで判定）
+
+■ Phase 10: テスト・品質
+--------------------------------------------------------------------------------
+[x] 10.1 ユニットテスト
     - [x] GitHub APIテスト（7件）                  完了: 2026-01-20
     - [x] Twitter APIテスト（7件）                 完了: 2026-01-20
     - [x] 統計管理テスト（20件）                   完了: 2026-01-20
     - [x] 日次チェックテスト（11件）               完了: 2026-01-20
-[ ] 9.2 統合テスト
+[ ] 10.2 統合テスト
     - [ ] OAuth連携フローテスト
     - [ ] Firestore連携テスト
-[ ] 9.3 E2Eテスト
+[ ] 10.3 E2Eテスト
     - [ ] ログインフロー
     - [ ] オンボーディングフロー
     - [ ] 日次チェックフロー
@@ -154,8 +179,8 @@ BATSUGAKU (バツガク) - 実装進捗管理
 
 最新実行: 2026-01-20
 
-Test Suites: 6 passed, 6 total
-Tests:       61 passed, 61 total
+Test Suites: 7 passed, 7 total
+Tests:       83 passed, 83 total
 
 内訳:
 - github.test.ts:           7 passed
@@ -164,6 +189,7 @@ Tests:       61 passed, 61 total
 - dailyCheck.test.ts:      11 passed
 - firestoreService.test.ts: 9 passed
 - dailyCheckService.test.ts:7 passed
+- subscription.test.ts:    22 passed
 
 TypeScript型チェック: エラーなし
 
@@ -184,19 +210,22 @@ TypeScript型チェック: エラーなし
 - src/lib/dailyCheck.ts              日次チェック機能
 - src/lib/dailyCheckService.ts       日次チェック統合サービス
 - src/lib/firestoreService.ts        Firestoreデータ操作
+- src/lib/subscription.ts            サブスクリプション判定
 - src/lib/utils/stats.ts             統計管理
 - src/contexts/AuthContext.tsx       認証コンテキスト（OAuth含む）
+- src/types/index.ts                 型定義（User, UserSubscription等）
 
 【セキュリティ】
 - firestore.rules                    Firestoreセキュリティルール
 
 【テストファイル】
-- src/__tests__/lib/github.test.ts         GitHub APIテスト
-- src/__tests__/lib/twitter.test.ts        Twitter APIテスト
-- src/__tests__/lib/stats.test.ts          統計管理テスト
-- src/__tests__/lib/dailyCheck.test.ts     日次チェックテスト
-- src/__tests__/lib/firestoreService.test.ts  Firestoreサービステスト
+- src/__tests__/lib/github.test.ts           GitHub APIテスト
+- src/__tests__/lib/twitter.test.ts          Twitter APIテスト
+- src/__tests__/lib/stats.test.ts            統計管理テスト
+- src/__tests__/lib/dailyCheck.test.ts       日次チェックテスト
+- src/__tests__/lib/firestoreService.test.ts Firestoreサービステスト
 - src/__tests__/lib/dailyCheckService.test.ts 日次チェック統合テスト
+- src/__tests__/lib/subscription.test.ts     サブスクリプションテスト
 
 ================================================================================
 次の作業
@@ -209,11 +238,13 @@ TypeScript型チェック: エラーなし
    - 理由: コア機能のUIフロー完成に必須
 3. Phase 5.3: OAuth連携の動作確認
    - 理由: 連携ボタンの実機動作テストが必要
-4. Phase 7: 通知機能
+4. Phase 9: サブスクリプション機能
+   - 理由: マネタイズの基盤。Apple審査にも時間がかかるため早めに着手推奨
+5. Phase 7: 通知機能
    - 理由: ユーザー体験向上のため重要
-5. Phase 8: Cloud Functions（自動実行）
+6. Phase 8: Cloud Functions（自動実行）
    - 理由: 自動化は運用開始前に必要
-6. Phase 9.2-9.3: 統合テスト・E2Eテスト
+7. Phase 10.2-10.3: 統合テスト・E2Eテスト
    - 理由: リリース前の品質保証
 
 ================================================================================

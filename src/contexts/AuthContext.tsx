@@ -269,6 +269,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       fcmToken: null,
       notificationsEnabled: true,
       onboardingCompleted: false,
+      isAdmin: false,
+      subscription: null,
     };
 
     await setDoc(userRef, newUser);

@@ -34,6 +34,12 @@ export interface User {
 
   // 初回設定完了フラグ
   onboardingCompleted: boolean;
+
+  // 管理者フラグ（サブスクバイパス用）
+  isAdmin: boolean;
+
+  // サブスクリプション
+  subscription: UserSubscription | null;
 }
 
 export interface UserGoal {
@@ -52,6 +58,15 @@ export interface UserStats {
   longestStreak: number;
   lastStudyDate: Timestamp | null;
   lastCheckedDate: Timestamp | null;
+}
+
+// サブスクリプション情報
+export interface UserSubscription {
+  isActive: boolean;
+  productId: string;
+  purchasedAt: Timestamp;
+  expiresAt: Timestamp;
+  originalTransactionId: string;
 }
 
 // 日次ログ
