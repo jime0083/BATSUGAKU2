@@ -324,6 +324,66 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [githubRequest, githubPromptAsync]);
 
+  // X (Twitter) アカウント連携解除
+  const unlinkXAccount = useCallback(async () => {
+    if (!user) {
+      throw new Error('User not logged in');
+    }
+
+    try {
+      // Firestoreを更新
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        xLinked: false,
+        xUserId: null,
+        xAccessToken: null,
+        xRefreshToken: null,
+        xTokenExpiresAt: null,
+      });
+
+      // ローカル状態を更新
+      setUser({
+        ...user,
+        xLinked: false,
+        xUserId: null,
+        xAccessToken: null,
+        xRefreshToken: null,
+        xTokenExpiresAt: null,
+      });
+    } catch (error) {
+      console.error('X unlink error:', error);
+      throw error;
+    }
+  }, [user]);
+
+  // GitHub アカウント連携解除
+  const unlinkGitHubAccount = useCallback(async () => {
+    if (!user) {
+      throw new Error('User not logged in');
+    }
+
+    try {
+      // Firestoreを更新
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        githubLinked: false,
+        githubUsername: null,
+        githubAccessToken: null,
+      });
+
+      // ローカル状態を更新
+      setUser({
+        ...user,
+        githubLinked: false,
+        githubUsername: null,
+        githubAccessToken: null,
+      });
+    } catch (error) {
+      console.error('GitHub unlink error:', error);
+      throw error;
+    }
+  }, [user]);
+
   const value: AuthContextType = {
     user,
     loading,
@@ -331,6 +391,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signOut,
     linkXAccount,
     linkGitHubAccount,
+    unlinkXAccount,
+    unlinkGitHubAccount,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

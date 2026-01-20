@@ -1,10 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { COLORS } from '../../src/constants';
 
 export default function SettingsScreen() {
-  const { user, signOut, linkXAccount, linkGitHubAccount } = useAuth();
+  const { user, signOut, linkXAccount, linkGitHubAccount, unlinkXAccount, unlinkGitHubAccount } = useAuth();
+  const [linkingGitHub, setLinkingGitHub] = useState(false);
+  const [linkingX, setLinkingX] = useState(false);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -18,19 +21,69 @@ export default function SettingsScreen() {
   };
 
   const handleLinkX = async () => {
+    setLinkingX(true);
     try {
       await linkXAccount();
     } catch (error) {
       Alert.alert('エラー', 'X連携に失敗しました');
+    } finally {
+      setLinkingX(false);
     }
   };
 
+  const handleUnlinkX = () => {
+    Alert.alert(
+      'X連携解除',
+      'X連携を解除すると、サボりツイートの自動投稿ができなくなります。解除しますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '解除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await unlinkXAccount();
+              Alert.alert('完了', 'X連携を解除しました');
+            } catch (error) {
+              Alert.alert('エラー', 'X連携解除に失敗しました');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleLinkGitHub = async () => {
+    setLinkingGitHub(true);
     try {
       await linkGitHubAccount();
     } catch (error) {
       Alert.alert('エラー', 'GitHub連携に失敗しました');
+    } finally {
+      setLinkingGitHub(false);
     }
+  };
+
+  const handleUnlinkGitHub = () => {
+    Alert.alert(
+      'GitHub連携解除',
+      'GitHub連携を解除すると、日次チェック機能が使えなくなります。解除しますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '解除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await unlinkGitHubAccount();
+              Alert.alert('完了', 'GitHub連携を解除しました');
+            } catch (error) {
+              Alert.alert('エラー', 'GitHub連携解除に失敗しました');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -93,31 +146,52 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>アカウント連携</Text>
           <View style={styles.card}>
+            {/* GitHub連携 */}
             <View style={styles.connectionRow}>
-              <View>
+              <View style={styles.connectionInfo}>
                 <Text style={styles.connectionLabel}>GitHub</Text>
-                <Text style={styles.connectionStatus}>
+                <Text style={[
+                  styles.connectionStatus,
+                  user?.githubLinked && styles.connectionStatusLinked
+                ]}>
                   {user?.githubLinked
                     ? `@${user.githubUsername}`
                     : '未連携 - pushの監視に必要です'}
                 </Text>
               </View>
-              {!user?.githubLinked && (
+              {linkingGitHub ? (
+                <ActivityIndicator size="small" color={COLORS.accent} />
+              ) : user?.githubLinked ? (
+                <TouchableOpacity style={styles.unlinkButton} onPress={handleUnlinkGitHub}>
+                  <Text style={styles.unlinkButtonText}>解除</Text>
+                </TouchableOpacity>
+              ) : (
                 <TouchableOpacity style={styles.linkButton} onPress={handleLinkGitHub}>
                   <Text style={styles.linkButtonText}>連携</Text>
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* X連携 */}
             <View style={[styles.connectionRow, { borderBottomWidth: 0 }]}>
-              <View>
+              <View style={styles.connectionInfo}>
                 <Text style={styles.connectionLabel}>X (Twitter)</Text>
-                <Text style={styles.connectionStatus}>
+                <Text style={[
+                  styles.connectionStatus,
+                  user?.xLinked && styles.connectionStatusLinked
+                ]}>
                   {user?.xLinked
                     ? '連携済み'
                     : '未連携 - 自動投稿に必要です'}
                 </Text>
               </View>
-              {!user?.xLinked && (
+              {linkingX ? (
+                <ActivityIndicator size="small" color={COLORS.accent} />
+              ) : user?.xLinked ? (
+                <TouchableOpacity style={styles.unlinkButton} onPress={handleUnlinkX}>
+                  <Text style={styles.unlinkButtonText}>解除</Text>
+                </TouchableOpacity>
+              ) : (
                 <TouchableOpacity style={styles.linkButton} onPress={handleLinkX}>
                   <Text style={styles.linkButtonText}>連携</Text>
                 </TouchableOpacity>
@@ -269,6 +343,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
+  connectionInfo: {
+    flex: 1,
+  },
   connectionLabel: {
     fontSize: 14,
     fontWeight: '600',
@@ -276,8 +353,11 @@ const styles = StyleSheet.create({
   },
   connectionStatus: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: COLORS.warning,
     marginTop: 2,
+  },
+  connectionStatusLinked: {
+    color: COLORS.success,
   },
   linkButton: {
     backgroundColor: COLORS.accent,
@@ -289,6 +369,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  unlinkButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+  },
+  unlinkButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.error,
   },
   switchRow: {
     flexDirection: 'row',

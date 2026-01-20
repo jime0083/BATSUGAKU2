@@ -138,6 +138,8 @@ export interface AuthContextType {
   signOut: () => Promise<void>;
   linkXAccount: () => Promise<void>;
   linkGitHubAccount: () => Promise<void>;
+  unlinkXAccount: () => Promise<void>;
+  unlinkGitHubAccount: () => Promise<void>;
 }
 
 // ナビゲーション
