@@ -1,40 +1,51 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useCallback } from 'react';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { useDashboardData } from '../../src/hooks/useDashboardData';
+import { DailyCheckButton, DailyCheckResultModal } from '../../src/components';
+import { DailyCheckResultDisplay } from '../../src/hooks/useDailyCheck';
 import { COLORS } from '../../src/constants';
 
 export default function DashboardScreen() {
   const { user } = useAuth();
+  const { weekDays, loading, error, refresh } = useDashboardData(user?.uid);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [checkResult, setCheckResult] = useState<DailyCheckResultDisplay | null>(null);
 
-  // 今週の日付を計算
-  const getWeekDays = () => {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  }, [refresh]);
 
-    const days = [];
-    const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
+  const handleCheckComplete = useCallback(() => {
+    // チェック完了後にデータを更新
+    refresh();
+  }, [refresh]);
 
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
-      days.push({
-        name: dayNames[i],
-        date: date.getDate(),
-        isToday: date.toDateString() === today.toDateString(),
-        // TODO: 実際のpush状態を取得
-        hasStudied: Math.random() > 0.3, // ダミーデータ
-      });
+  const handleShowResult = useCallback((result: DailyCheckResultDisplay | null) => {
+    if (result) {
+      setCheckResult(result);
+      setShowResultModal(true);
     }
-    return days;
-  };
+  }, []);
 
-  const weekDays = getWeekDays();
+  const handleCloseModal = useCallback(() => {
+    setShowResultModal(false);
+    setCheckResult(null);
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* ユーザー情報 */}
         <View style={styles.userSection}>
           <Text style={styles.greeting}>
@@ -60,28 +71,51 @@ export default function DashboardScreen() {
           </Text>
         </View>
 
+        {/* 日次チェックボタン */}
+        <DailyCheckButton
+          user={user}
+          onCheckComplete={handleCheckComplete}
+          onShowResult={handleShowResult}
+        />
+
         {/* 今週の学習状況 */}
         <View style={styles.weekCard}>
           <Text style={styles.sectionTitle}>今週の学習</Text>
-          <View style={styles.weekDays}>
-            {weekDays.map((day, index) => (
-              <View key={index} style={styles.dayColumn}>
-                <Text style={[styles.dayName, day.isToday && styles.todayText]}>
-                  {day.name}
-                </Text>
-                <View
-                  style={[
-                    styles.dayCircle,
-                    day.hasStudied && styles.dayCircleStudied,
-                    day.isToday && styles.dayCircleToday,
-                  ]}
-                >
-                  <Text style={styles.dayDate}>{day.date}</Text>
+          {loading && !refreshing ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={COLORS.accent} />
+            </View>
+          ) : (
+            <View style={styles.weekDays}>
+              {weekDays.map((day, index) => (
+                <View key={index} style={styles.dayColumn}>
+                  <Text style={[styles.dayName, day.isToday && styles.todayText]}>
+                    {day.name}
+                  </Text>
+                  <View
+                    style={[
+                      styles.dayCircle,
+                      day.hasStudied === true && styles.dayCircleStudied,
+                      day.hasStudied === false && styles.dayCircleSkipped,
+                      day.isToday && styles.dayCircleToday,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dayDate,
+                        day.hasStudied === true && styles.dayDateStudied,
+                        day.hasStudied === false && styles.dayDateSkipped,
+                      ]}
+                    >
+                      {day.date}
+                    </Text>
+                  </View>
+                  {day.hasStudied === true && <Text style={styles.checkMark}>✓</Text>}
+                  {day.hasStudied === false && <Text style={styles.skipMark}>✗</Text>}
                 </View>
-                {day.hasStudied && <Text style={styles.checkMark}>✓</Text>}
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* 統計カード */}
@@ -121,6 +155,13 @@ export default function DashboardScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* 日次チェック結果モーダル */}
+      <DailyCheckResultModal
+        visible={showResultModal}
+        result={checkResult}
+        onClose={handleCloseModal}
+      />
     </SafeAreaView>
   );
 }
@@ -224,6 +265,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.success,
     borderColor: COLORS.success,
   },
+  dayCircleSkipped: {
+    backgroundColor: COLORS.error,
+    borderColor: COLORS.error,
+  },
   dayCircleToday: {
     borderColor: COLORS.accent,
     borderWidth: 2,
@@ -232,10 +277,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text,
   },
+  dayDateStudied: {
+    color: '#FFFFFF',
+  },
+  dayDateSkipped: {
+    color: '#FFFFFF',
+  },
   checkMark: {
     fontSize: 12,
     color: COLORS.success,
     marginTop: 4,
+  },
+  skipMark: {
+    fontSize: 12,
+    color: COLORS.error,
+    marginTop: 4,
+  },
+  loadingContainer: {
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statsGrid: {
     flexDirection: 'row',
