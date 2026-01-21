@@ -8,18 +8,21 @@ import {
 } from 'react-native';
 import { User } from '../types';
 import { useDailyCheck } from '../hooks/useDailyCheck';
+import { hasPremiumAccess } from '../lib/subscription';
 import { COLORS } from '../constants';
 
 interface DailyCheckButtonProps {
   user: User | null;
   onCheckComplete?: () => void;
   onShowResult?: (result: ReturnType<typeof useDailyCheck>['lastResult']) => void;
+  onShowPaywall?: () => void;
 }
 
 export function DailyCheckButton({
   user,
   onCheckComplete,
   onShowResult,
+  onShowPaywall,
 }: DailyCheckButtonProps) {
   const {
     isChecking,
@@ -32,6 +35,9 @@ export function DailyCheckButton({
     refreshStatus,
   } = useDailyCheck(user);
 
+  // プレミアムアクセスがないか確認
+  const needsSubscription = user && !hasPremiumAccess(user);
+
   useEffect(() => {
     refreshStatus();
   }, [refreshStatus]);
@@ -43,6 +49,12 @@ export function DailyCheckButton({
   }, [lastResult, onShowResult]);
 
   const handlePress = async () => {
+    // サブスクリプションが必要な場合はPaywallを表示
+    if (needsSubscription && onShowPaywall) {
+      onShowPaywall();
+      return;
+    }
+
     const result = await performCheck();
     if (result && onCheckComplete) {
       onCheckComplete();
@@ -55,6 +67,9 @@ export function DailyCheckButton({
     }
     if (hasCheckedToday) {
       return [styles.button, styles.buttonChecked];
+    }
+    if (needsSubscription) {
+      return [styles.button, styles.buttonUpgrade];
     }
     if (!canCheck) {
       return [styles.button, styles.buttonDisabled];
@@ -69,6 +84,9 @@ export function DailyCheckButton({
     if (hasCheckedToday) {
       return '今日のチェック完了 ✓';
     }
+    if (needsSubscription) {
+      return 'プレミアムにアップグレード';
+    }
     return '今日の学習をチェック';
   };
 
@@ -77,7 +95,7 @@ export function DailyCheckButton({
       <TouchableOpacity
         style={getButtonStyle()}
         onPress={handlePress}
-        disabled={!canCheck || isChecking}
+        disabled={(!canCheck && !needsSubscription) || isChecking}
         activeOpacity={0.7}
       >
         {isChecking ? (
@@ -124,6 +142,9 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     backgroundColor: COLORS.border,
+  },
+  buttonUpgrade: {
+    backgroundColor: COLORS.warning,
   },
   buttonContent: {
     flexDirection: 'row',

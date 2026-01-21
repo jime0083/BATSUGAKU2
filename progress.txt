@@ -118,28 +118,49 @@ BATSUGAKU (バツガク) - 実装進捗管理
 
 ■ Phase 7: 通知機能
 --------------------------------------------------------------------------------
-[ ] 7.1 プッシュ通知設定
-    - [ ] expo-notifications設定
-    - [ ] FCMトークン取得・保存
-[ ] 7.2 リマインダー通知
-    - [ ] 23:00リマインダー
-    - [ ] 23:30最終警告
-[ ] 7.3 達成通知
-    - [ ] push検出時の通知
-    - [ ] ストリーク達成時の通知
+[x] 7.1 プッシュ通知設定                              完了: 2026-01-20
+    - [x] expo-notifications設定（app.json）          完了: 以前に設定済み
+    - [x] expo-deviceインストール                     完了: 2026-01-20
+    - [x] notificationService.ts作成                  完了: 2026-01-20
+    - [x] FCMトークン取得・保存                       完了: 2026-01-20
+    - [x] Androidチャンネル設定                       完了: 2026-01-20
+[x] 7.2 リマインダー通知                              完了: 2026-01-20
+    - [x] 23:00リマインダー（毎日）                   完了: 2026-01-20
+    - [x] 23:30最終警告（毎日）                       完了: 2026-01-20
+    - [x] リマインダーのキャンセル機能                完了: 2026-01-20
+[x] 7.3 達成通知                                      完了: 2026-01-20
+    - [x] push検出時の通知                            完了: 2026-01-20
+    - [x] ストリーク達成時の通知                      完了: 2026-01-20
+    - [x] バッジ獲得通知                              完了: 2026-01-20
+[x] 7.4 useNotificationフック作成                     完了: 2026-01-20
+    - [x] 権限リクエスト                              完了: 2026-01-20
+    - [x] リマインダー有効/無効切り替え               完了: 2026-01-20
+    - [x] 通知リスナー設定                            完了: 2026-01-20
+[x] 7.5 テスト作成                                    完了: 2026-01-20
+    - [x] notificationServiceテスト（20件）           完了: 2026-01-20
 
 ■ Phase 8: 自動実行（Cloud Functions）
 --------------------------------------------------------------------------------
-[ ] 8.1 Firebase Cloud Functions設定
-    - [ ] プロジェクト設定
-    - [ ] デプロイ設定
-[ ] 8.2 日次自動チェック
-    - [ ] 0:00 (JST) 定期実行
-    - [ ] 全ユーザーのpush状況チェック
-    - [ ] 自動ツイート投稿
-[ ] 8.3 統計集計
-    - [ ] 日次統計の集計
-    - [ ] 管理者向け統計ツイート
+[x] 8.1 Firebase Cloud Functions設定                  完了: 2026-01-20
+    - [x] functions/ディレクトリ構造作成              完了: 2026-01-20
+    - [x] package.json, tsconfig.json作成             完了: 2026-01-20
+    - [x] firebase.json作成                           完了: 2026-01-20
+    - [x] firestore.indexes.json作成                  完了: 2026-01-20
+    - [ ] Cloud Functionsデプロイ（手動作業）
+[x] 8.2 日次自動チェック                              完了: 2026-01-20
+    - [x] dailyAutoCheck関数（毎日0:00 JST）          完了: 2026-01-20
+    - [x] 全ユーザーのpush状況チェック                完了: 2026-01-20
+    - [x] サボりツイート自動投稿                      完了: 2026-01-20
+    - [x] ストリーク達成ツイート自動投稿              完了: 2026-01-20
+    - [x] Xトークンリフレッシュ処理                   完了: 2026-01-20
+[x] 8.3 統計集計                                      完了: 2026-01-20
+    - [x] 日次統計の集計・保存                        完了: 2026-01-20
+    - [x] 管理者向け統計ツイート                      完了: 2026-01-20
+    - [x] getDailyStats関数                           完了: 2026-01-20
+    - [x] getMonthlyStats関数                         完了: 2026-01-20
+[x] 8.4 管理者・デバッグ用関数                        完了: 2026-01-20
+    - [x] manualDailyCheck（手動全ユーザーチェック）  完了: 2026-01-20
+    - [x] checkSingleUser（単一ユーザーチェック）     完了: 2026-01-20
 
 ■ Phase 9: サブスクリプション（月額300円）
 --------------------------------------------------------------------------------
@@ -148,23 +169,30 @@ BATSUGAKU (バツガク) - 実装進捗管理
     - [x] UserSubscription型追加                      完了: 2026-01-20
     - [x] subscription.ts（アクセス判定ユーティリティ）完了: 2026-01-20
     - [x] subscriptionテスト（22件）                  完了: 2026-01-20
-[ ] 9.1 RevenueCat設定
-    - [ ] RevenueCatアカウント作成
-    - [ ] App Store Connect設定
-    - [ ] 商品登録（月額300円）
-    - [ ] react-native-purchases導入
-[ ] 9.2 Paywall画面
-    - [ ] 購入促進UI作成
-    - [ ] 価格・特典の表示
-    - [ ] 購入ボタン
-[ ] 9.3 購入・復元機能
-    - [ ] 購入処理の実装
-    - [ ] 復元処理の実装
-    - [ ] 購入状態のFirestore同期
-[ ] 9.4 アクセス制御
-    - [ ] 未購入ユーザーの機能制限
-    - [ ] 期限切れ判定
-    - [ ] 管理者バイパス機能（isAdminフラグで判定）
+[x] 9.1 RevenueCat設定                               完了: 2026-01-20
+    - [x] react-native-purchases導入                  完了: 2026-01-20
+    - [x] revenueCatService.ts作成                    完了: 2026-01-20
+    - [x] useSubscriptionフック作成                   完了: 2026-01-20
+    - [x] revenueCatServiceテスト（6件）              完了: 2026-01-20
+    - [x] useSubscriptionテスト（16件）               完了: 2026-01-20
+    - [ ] RevenueCatアカウント作成（外部作業）
+    - [ ] App Store Connect設定（外部作業）
+    - [ ] 商品登録（月額300円）（外部作業）
+[x] 9.2 Paywall画面                                  完了: 2026-01-20
+    - [x] PaywallScreen.tsx作成                       完了: 2026-01-20
+    - [x] 購入促進UI作成                              完了: 2026-01-20
+    - [x] 価格・特典の表示                            完了: 2026-01-20
+    - [x] 購入ボタン                                  完了: 2026-01-20
+[x] 9.3 購入・復元機能                               完了: 2026-01-20
+    - [x] 購入処理の実装                              完了: 2026-01-20
+    - [x] 復元処理の実装                              完了: 2026-01-20
+    - [x] 購入状態のFirestore同期                     完了: 2026-01-20
+[x] 9.4 アクセス制御                                 完了: 2026-01-20
+    - [x] 未購入ユーザーの機能制限                    完了: 2026-01-20
+    - [x] DailyCheckButtonにPaywall連携               完了: 2026-01-20
+    - [x] 設定画面にサブスク管理セクション追加        完了: 2026-01-20
+    - [x] ダッシュボードにPaywall連携                 完了: 2026-01-20
+    - [x] 管理者バイパス機能（isAdminフラグで判定）   完了: 2026-01-20
 
 ■ Phase 10: テスト・品質
 --------------------------------------------------------------------------------
@@ -187,18 +215,21 @@ BATSUGAKU (バツガク) - 実装進捗管理
 
 最新実行: 2026-01-20
 
-Test Suites: 8 passed, 8 total
-Tests:       95 passed, 95 total
+Test Suites: 11 passed, 11 total
+Tests:       137 passed, 137 total
 
 内訳:
-- github.test.ts:             7 passed
-- twitter.test.ts:            7 passed
-- stats.test.ts:             20 passed
-- dailyCheck.test.ts:        11 passed
-- firestoreService.test.ts:   9 passed
-- dailyCheckService.test.ts:  7 passed
-- subscription.test.ts:      22 passed
-- useDashboardData.test.ts:  12 passed
+- github.test.ts:              7 passed
+- twitter.test.ts:             7 passed
+- stats.test.ts:              20 passed
+- dailyCheck.test.ts:         11 passed
+- firestoreService.test.ts:    9 passed
+- dailyCheckService.test.ts:   7 passed
+- subscription.test.ts:       22 passed
+- useDashboardData.test.ts:   12 passed
+- revenueCatService.test.ts:   6 passed
+- useSubscription.test.ts:    16 passed
+- notificationService.test.ts: 20 passed
 
 TypeScript型チェック: エラーなし
 
@@ -220,19 +251,38 @@ TypeScript型チェック: エラーなし
 - src/lib/dailyCheckService.ts       日次チェック統合サービス
 - src/lib/firestoreService.ts        Firestoreデータ操作
 - src/lib/subscription.ts            サブスクリプション判定
+- src/lib/revenueCatService.ts       RevenueCat連携サービス
+- src/lib/notificationService.ts     通知サービス
 - src/lib/utils/stats.ts             統計管理
 - src/hooks/useDashboardData.ts      ダッシュボード用カスタムフック
 - src/hooks/useDailyCheck.ts         日次チェック用カスタムフック
+- src/hooks/useSubscription.ts       サブスクリプション用カスタムフック
+- src/hooks/useNotification.ts       通知用カスタムフック
 - src/components/DailyCheckButton.tsx    日次チェックボタン
 - src/components/DailyCheckResultModal.tsx チェック結果モーダル
+- src/components/PaywallScreen.tsx       Paywall画面
 - src/components/index.ts            コンポーネントエクスポート
 - src/contexts/AuthContext.tsx       認証コンテキスト（OAuth連携・解除含む）
-- app/(main)/settings.tsx            設定画面（連携解除機能追加）
+- app/(main)/settings.tsx            設定画面（サブスク管理追加）
 - src/types/index.ts                 型定義（User, UserSubscription等）
-- app/(main)/index.tsx               ダッシュボード画面（実データ連携）
+- app/(main)/index.tsx               ダッシュボード画面（Paywall連携）
 
-【セキュリティ】
+【Cloud Functions】
+- functions/package.json             Functions依存関係
+- functions/tsconfig.json            Functions TypeScript設定
+- functions/src/index.ts             Functions エントリポイント
+- functions/src/types.ts             Functions 型定義
+- functions/src/dailyCheck.ts        日次チェックロジック
+- functions/src/twitter.ts           X API連携（Functions用）
+- functions/src/github.ts            GitHub API連携（Functions用）
+
+【Firebase設定】
+- firebase.json                      Firebase設定
 - firestore.rules                    Firestoreセキュリティルール
+- firestore.indexes.json             Firestoreインデックス
+
+【その他】
+- manual-work.txt                    手動作業リスト
 
 【テストファイル】
 - src/__tests__/lib/github.test.ts             GitHub APIテスト
@@ -241,21 +291,25 @@ TypeScript型チェック: エラーなし
 - src/__tests__/lib/dailyCheck.test.ts         日次チェックテスト
 - src/__tests__/lib/firestoreService.test.ts   Firestoreサービステスト
 - src/__tests__/lib/dailyCheckService.test.ts  日次チェック統合テスト
-- src/__tests__/lib/subscription.test.ts       サブスクリプションテスト
+- src/__tests__/lib/subscription.test.ts       サブスクリプション判定テスト
+- src/__tests__/lib/revenueCatService.test.ts  RevenueCatサービステスト
+- src/__tests__/lib/notificationService.test.ts 通知サービステスト
 - src/__tests__/hooks/useDashboardData.test.ts ダッシュボードフックテスト
+- src/__tests__/hooks/useSubscription.test.ts  サブスクリプションフックテスト
 
 ================================================================================
 次の作業
 ================================================================================
 
 推奨順序:
-1. Phase 9: サブスクリプション機能 ← 次はここ
-   - 理由: マネタイズの基盤。Apple審査にも時間がかかるため早めに着手推奨
-2. Phase 7: 通知機能
-   - 理由: ユーザー体験向上のため重要
-3. Phase 8: Cloud Functions（自動実行）
-   - 理由: 自動化は運用開始前に必要
-4. Phase 10.2-10.3: 統合テスト・E2Eテスト
+1. Phase 10.2-10.3: 統合テスト・E2Eテスト ← 次はここ
    - 理由: リリース前の品質保証
+2. 外部作業（並行して進める）
+   - RevenueCatアカウント作成
+   - App Store Connect設定
+   - 商品登録（月額300円）
+   - Firebase Blazeプラン・Cloud Functionsデプロイ
+   - Cloud Functions シークレット設定
+   詳細は manual-work.txt を参照
 
 ================================================================================

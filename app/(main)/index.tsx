@@ -3,15 +3,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback } from 'react';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useDashboardData } from '../../src/hooks/useDashboardData';
-import { DailyCheckButton, DailyCheckResultModal } from '../../src/components';
+import { useSubscription } from '../../src/hooks/useSubscription';
+import { DailyCheckButton, DailyCheckResultModal, PaywallScreen } from '../../src/components';
 import { DailyCheckResultDisplay } from '../../src/hooks/useDailyCheck';
 import { COLORS } from '../../src/constants';
 
 export default function DashboardScreen() {
   const { user } = useAuth();
   const { weekDays, loading, error, refresh } = useDashboardData(user?.uid);
+  const subscription = useSubscription(user);
   const [refreshing, setRefreshing] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const [checkResult, setCheckResult] = useState<DailyCheckResultDisplay | null>(null);
 
   const onRefresh = useCallback(async () => {
@@ -35,6 +38,14 @@ export default function DashboardScreen() {
   const handleCloseModal = useCallback(() => {
     setShowResultModal(false);
     setCheckResult(null);
+  }, []);
+
+  const handleShowPaywall = useCallback(() => {
+    setShowPaywall(true);
+  }, []);
+
+  const handleClosePaywall = useCallback(() => {
+    setShowPaywall(false);
   }, []);
 
   return (
@@ -76,6 +87,7 @@ export default function DashboardScreen() {
           user={user}
           onCheckComplete={handleCheckComplete}
           onShowResult={handleShowResult}
+          onShowPaywall={handleShowPaywall}
         />
 
         {/* 今週の学習状況 */}
@@ -161,6 +173,13 @@ export default function DashboardScreen() {
         visible={showResultModal}
         result={checkResult}
         onClose={handleCloseModal}
+      />
+
+      {/* Paywallモーダル */}
+      <PaywallScreen
+        visible={showPaywall}
+        onClose={handleClosePaywall}
+        subscription={subscription}
       />
     </SafeAreaView>
   );

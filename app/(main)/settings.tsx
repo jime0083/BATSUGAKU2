@@ -3,11 +3,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { COLORS } from '../../src/constants';
+import { useSubscription } from '../../src/hooks/useSubscription';
+import { PaywallScreen } from '../../src/components';
+import { getSubscriptionStatusText, getSubscriptionDaysRemaining } from '../../src/lib/subscription';
 
 export default function SettingsScreen() {
   const { user, signOut, linkXAccount, linkGitHubAccount, unlinkXAccount, unlinkGitHubAccount } = useAuth();
   const [linkingGitHub, setLinkingGitHub] = useState(false);
   const [linkingX, setLinkingX] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const subscription = useSubscription(user);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -200,6 +205,48 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* サブスクリプション */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>サブスクリプション</Text>
+          <View style={styles.card}>
+            <View style={styles.subscriptionRow}>
+              <View style={styles.subscriptionInfo}>
+                <Text style={styles.subscriptionLabel}>
+                  {subscription.isPremium ? 'プレミアム会員' : 'フリー'}
+                </Text>
+                <Text style={[
+                  styles.subscriptionStatus,
+                  subscription.isPremium && styles.subscriptionStatusActive
+                ]}>
+                  {user ? getSubscriptionStatusText(user) : '未ログイン'}
+                </Text>
+                {subscription.isPremium && user?.subscription && (
+                  <Text style={styles.subscriptionExpiry}>
+                    残り{getSubscriptionDaysRemaining(user.subscription)}日
+                  </Text>
+                )}
+              </View>
+              {subscription.isLoading ? (
+                <ActivityIndicator size="small" color={COLORS.accent} />
+              ) : subscription.isPremium ? (
+                <TouchableOpacity
+                  style={styles.manageButton}
+                  onPress={() => subscription.openManagement()}
+                >
+                  <Text style={styles.manageButtonText}>管理</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.upgradeButton}
+                  onPress={() => setShowPaywall(true)}
+                >
+                  <Text style={styles.upgradeButtonText}>アップグレード</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+
         {/* 通知設定 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>通知設定</Text>
@@ -239,6 +286,13 @@ export default function SettingsScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Paywallモーダル */}
+      <PaywallScreen
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        subscription={subscription}
+      />
     </SafeAreaView>
   );
 }
@@ -387,6 +441,56 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  subscriptionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  subscriptionInfo: {
+    flex: 1,
+  },
+  subscriptionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  subscriptionStatus: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  subscriptionStatusActive: {
+    color: COLORS.success,
+  },
+  subscriptionExpiry: {
+    fontSize: 11,
+    color: COLORS.warning,
+    marginTop: 2,
+  },
+  upgradeButton: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  upgradeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  manageButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  manageButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
   },
   dangerButton: {
     backgroundColor: COLORS.error,

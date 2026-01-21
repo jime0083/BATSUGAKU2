@@ -1,0 +1,301 @@
+================================================================================
+BATSUGAKU (バツガク) - 手動作業リスト
+================================================================================
+
+このファイルには、開発者が手動で行う必要がある外部サービスの設定作業を
+記載しています。コード実装では対応できない作業です。
+
+最終更新: 2026-01-20
+
+================================================================================
+1. RevenueCat設定（サブスクリプション）
+================================================================================
+
+【優先度: 高】サブスク機能のリリースに必須
+
+□ 1.1 RevenueCatアカウント作成
+   - URL: https://app.revenuecat.com/signup
+   - 無料プランで開始可能
+
+□ 1.2 プロジェクト作成
+   - RevenueCatダッシュボードで新規プロジェクト作成
+   - プロジェクト名: Batsugaku
+
+□ 1.3 iOSアプリ登録
+   - App Store Connectから「App-Specific Shared Secret」を取得
+   - RevenueCatに登録
+
+□ 1.4 API Key取得
+   - RevenueCatダッシュボード > API Keys
+   - Public API Key（iOS用）をコピー
+
+□ 1.5 環境変数に設定
+   - .envファイルに追加:
+     EXPO_PUBLIC_REVENUECAT_API_KEY=<取得したAPIキー>
+
+□ 1.6 Entitlement作成
+   - RevenueCatダッシュボード > Entitlements
+   - ID: premium
+   - 説明: プレミアム機能へのアクセス
+
+□ 1.7 Offering作成
+   - RevenueCatダッシュボード > Offerings
+   - ID: default
+   - Package: monthly (月額プラン)
+
+================================================================================
+2. App Store Connect設定（iOS課金）
+================================================================================
+
+【優先度: 高】iOSでのサブスク販売に必須
+
+□ 2.1 Apple Developer Program登録
+   - URL: https://developer.apple.com/programs/
+   - 年額$99（約15,000円）
+   - 既に登録済みの場合はスキップ
+
+□ 2.2 App Store Connectでアプリ作成
+   - URL: https://appstoreconnect.apple.com/
+   - Bundle ID: com.batsugaku.app
+
+□ 2.3 App内課金の設定
+   - App Store Connect > アプリ > サブスクリプション
+
+   【サブスクリプショングループ作成】
+   - グループ名: バツガクプレミアム
+
+   【商品作成】
+   - 商品ID: batsugaku_monthly_300
+   - 種類: 自動更新サブスクリプション
+   - 価格: ¥300/月
+   - 表示名: バツガクプレミアム（月額）
+   - 説明: 全機能が使える月額プラン
+
+□ 2.4 App-Specific Shared Secret取得
+   - App Store Connect > アプリ > App情報 > App内課金
+   - 「App-Specific Shared Secret」を生成
+   - RevenueCatに登録（1.3で使用）
+
+□ 2.5 サンドボックステスター作成
+   - App Store Connect > ユーザーとアクセス > サンドボックス
+   - テスト用アカウントを作成
+
+================================================================================
+3. Firebase設定
+================================================================================
+
+【優先度: 中】Cloud Functionsに必須
+
+□ 3.1 Firebaseプロジェクト確認
+   - URL: https://console.firebase.google.com/
+   - プロジェクトが存在することを確認
+
+□ 3.2 Blazeプラン（従量課金）へアップグレード
+   - Firebase Console > 設定 > 使用量と請求
+   - 「Blazeプランにアップグレード」
+   - ※Cloud Functionsの利用に必須
+   - ※無料枠があるため、少量利用なら実質無料
+
+□ 3.3 Cloud Functions有効化
+   - Firebase Console > Functions
+   - 「開始する」をクリック
+
+□ 3.4 Firebase CLIインストール（ローカル）
+   - npm install -g firebase-tools
+   - firebase login
+   - firebase use <your-project-id>
+
+□ 3.5 Cloud Functions シークレット設定
+   - 以下のコマンドで環境変数（シークレット）を設定:
+
+   ```bash
+   # X (Twitter) API認証情報
+   firebase functions:secrets:set X_CLIENT_ID
+   firebase functions:secrets:set X_CLIENT_SECRET
+
+   # 管理者用Xアクセストークン（統計ツイート用、オプション）
+   firebase functions:secrets:set ADMIN_X_ACCESS_TOKEN
+   ```
+
+□ 3.6 Cloud Functions デプロイ
+   - cd functions && npm install && npm run build
+   - firebase deploy --only functions
+
+================================================================================
+4. OAuth認証情報設定
+================================================================================
+
+【優先度: 高】GitHub/X連携に必須
+
+□ 4.1 GitHub OAuth App設定
+   - URL: https://github.com/settings/developers
+   - 「New OAuth App」をクリック
+
+   【設定値】
+   - Application name: バツガク
+   - Homepage URL: https://batsugaku.app（または仮URL）
+   - Authorization callback URL:
+     exp://localhost:8081/--/auth/github
+     または
+     batsugaku://auth/github
+
+   【取得する値】
+   - Client ID → EXPO_PUBLIC_GITHUB_CLIENT_ID
+   - Client Secret → EXPO_PUBLIC_GITHUB_CLIENT_SECRET
+
+□ 4.2 X (Twitter) Developer Portal設定
+   - URL: https://developer.twitter.com/en/portal/dashboard
+   - Free Tierで可（月1,500ツイートまで）
+
+   【Project作成】
+   - Project名: Batsugaku
+   - App名: Batsugaku
+
+   【User authentication settings】
+   - OAuth 2.0を有効化
+   - Type: Native App
+   - Callback URI:
+     exp://localhost:8081/--/auth/twitter
+     または
+     batsugaku://auth/twitter
+   - Website URL: https://batsugaku.app（または仮URL）
+
+   【取得する値】
+   - Client ID → EXPO_PUBLIC_X_CLIENT_ID
+   - Client Secret → EXPO_PUBLIC_X_CLIENT_SECRET
+
+□ 4.3 Google OAuth設定（Firebase経由）
+   - Firebase Console > Authentication > Sign-in method
+   - Google を有効化
+
+   【Google Cloud Console】
+   - URL: https://console.cloud.google.com/
+   - APIs & Services > Credentials
+   - OAuth 2.0 Client IDを確認
+
+   【取得する値】
+   - Web Client ID → EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+   - iOS Client ID → EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+   - Android Client ID → EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
+
+================================================================================
+5. Expo/EAS設定
+================================================================================
+
+【優先度: 中】プッシュ通知・ビルドに必須
+
+□ 5.1 Expo アカウント確認
+   - URL: https://expo.dev/
+   - アカウントがない場合は作成
+
+□ 5.2 EAS CLIインストール
+   - npm install -g eas-cli
+   - eas login
+
+□ 5.3 EASプロジェクト設定
+   - eas init
+   - プロジェクトIDを取得
+
+□ 5.4 app.jsonのprojectId更新
+   - app.json > expo > extra > eas > projectId
+   - 取得したIDに変更
+
+□ 5.5 プッシュ通知の資格情報設定（iOS）
+   - eas credentials
+   - Push Notification Keyを設定
+
+================================================================================
+6. 環境変数（.env）設定
+================================================================================
+
+【優先度: 高】アプリ動作に必須
+
+□ 6.1 .envファイル作成
+   プロジェクトルートに.envファイルを作成し、以下を設定:
+
+   ```
+   # Firebase
+   EXPO_PUBLIC_FIREBASE_API_KEY=
+   EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
+   EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+   EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
+   EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+   EXPO_PUBLIC_FIREBASE_APP_ID=
+
+   # Google OAuth
+   EXPO_PUBLIC_GOOGLE_CLIENT_ID=
+   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=
+   EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=
+   EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
+
+   # X (Twitter) OAuth
+   EXPO_PUBLIC_X_CLIENT_ID=
+   EXPO_PUBLIC_X_CLIENT_SECRET=
+
+   # GitHub OAuth
+   EXPO_PUBLIC_GITHUB_CLIENT_ID=
+   EXPO_PUBLIC_GITHUB_CLIENT_SECRET=
+
+   # RevenueCat
+   EXPO_PUBLIC_REVENUECAT_API_KEY=
+   ```
+
+================================================================================
+7. 本番リリース前の作業
+================================================================================
+
+【優先度: 低】リリース直前に実施
+
+□ 7.1 プライバシーポリシー作成
+   - サブスク販売にはApple審査で必須
+   - ユーザーデータの取り扱いを明記
+
+□ 7.2 利用規約作成
+   - サブスク販売には必須
+   - 自動更新の説明を含める
+
+□ 7.3 App Store審査用スクリーンショット
+   - iPhone 6.7インチ、6.5インチ、5.5インチ
+   - iPad Pro 12.9インチ（タブレット対応時）
+
+□ 7.4 App Store説明文
+   - 日本語での説明文作成
+   - キーワード設定
+
+================================================================================
+作業完了チェックリスト
+================================================================================
+
+サブスク機能を有効にするために必須:
+□ RevenueCat設定完了（セクション1）
+□ App Store Connect設定完了（セクション2）
+□ 環境変数設定完了（セクション6）
+
+OAuth連携を有効にするために必須:
+□ GitHub OAuth設定完了（セクション4.1）
+□ X OAuth設定完了（セクション4.2）
+□ Google OAuth設定完了（セクション4.3）
+□ 環境変数設定完了（セクション6）
+
+Cloud Functionsを使用するために必須:
+□ Firebase Blazeプラン（セクション3.2）
+□ Cloud Functions有効化（セクション3.3）
+□ Firebase CLI設定（セクション3.4）
+
+プッシュ通知を有効にするために必須:
+□ EAS設定完了（セクション5）
+□ プッシュ通知資格情報設定（セクション5.5）
+
+================================================================================
+参考リンク
+================================================================================
+
+- RevenueCat公式ドキュメント: https://docs.revenuecat.com/
+- App Store Connect: https://appstoreconnect.apple.com/
+- Firebase Console: https://console.firebase.google.com/
+- Twitter Developer Portal: https://developer.twitter.com/
+- GitHub Developer: https://github.com/settings/developers
+- Expo: https://expo.dev/
+- EAS Build: https://docs.expo.dev/build/introduction/
+
+================================================================================
