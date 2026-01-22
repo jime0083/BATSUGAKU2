@@ -20,37 +20,42 @@ jest.mock('firebase/firestore', () => ({
 }));
 
 // モック設定 - 最初に設定する必要がある
-const mockInitializeRevenueCat = jest.fn().mockResolvedValue(undefined);
-const mockSetRevenueCatUserId = jest.fn().mockResolvedValue(undefined);
-const mockGetCurrentPackage = jest.fn().mockResolvedValue({
-  identifier: 'monthly',
-  product: {
-    priceString: '¥300',
-  },
+const mockInitializeIAP = jest.fn().mockResolvedValue(undefined);
+const mockSetIAPUserId = jest.fn();
+const mockGetCurrentProduct = jest.fn().mockResolvedValue({
+  productId: 'batsugaku_monthly_300',
+  title: 'Batsugaku Premium',
+  description: '月額プレミアムプラン',
+  price: '300',
+  localizedPrice: '¥300',
+  currency: 'JPY',
 });
-const mockPurchasePackage = jest.fn();
-const mockRestorePurchases = jest.fn();
-const mockGetCustomerInfo = jest.fn();
+const mockPurchaseSubscription = jest.fn();
+const mockRestoreIAPPurchases = jest.fn();
+const mockGetCurrentSubscriptionInfo = jest.fn();
 const mockIsPremiumActive = jest.fn().mockResolvedValue(false);
-const mockCustomerInfoToUserSubscription = jest.fn();
+const mockIapInfoToUserSubscription = jest.fn();
 const mockOpenSubscriptionManagement = jest.fn().mockResolvedValue(undefined);
 const mockFormatPrice = jest.fn().mockReturnValue('¥300');
-const mockLogOutRevenueCat = jest.fn().mockResolvedValue(undefined);
+const mockEndIAPConnection = jest.fn().mockResolvedValue(undefined);
 const mockUpdateUser = jest.fn().mockResolvedValue(undefined);
 const mockHasPremiumAccess = jest.fn().mockReturnValue(false);
 
-jest.mock('../../lib/revenueCatService', () => ({
-  initializeRevenueCat: mockInitializeRevenueCat,
-  setRevenueCatUserId: mockSetRevenueCatUserId,
-  getCurrentPackage: mockGetCurrentPackage,
-  purchasePackage: mockPurchasePackage,
-  restorePurchases: mockRestorePurchases,
-  getCustomerInfo: mockGetCustomerInfo,
+jest.mock('../../lib/iapService', () => ({
+  initializeIAP: mockInitializeIAP,
+  setIAPUserId: mockSetIAPUserId,
+  getCurrentProduct: mockGetCurrentProduct,
+  purchaseSubscription: mockPurchaseSubscription,
+  restoreIAPPurchases: mockRestoreIAPPurchases,
+  getCurrentSubscriptionInfo: mockGetCurrentSubscriptionInfo,
   isPremiumActive: mockIsPremiumActive,
-  customerInfoToUserSubscription: mockCustomerInfoToUserSubscription,
+  iapInfoToUserSubscription: mockIapInfoToUserSubscription,
   openSubscriptionManagement: mockOpenSubscriptionManagement,
   formatPrice: mockFormatPrice,
-  logOutRevenueCat: mockLogOutRevenueCat,
+  endIAPConnection: mockEndIAPConnection,
+  PRODUCT_IDS: {
+    MONTHLY_300: 'batsugaku_monthly_300',
+  },
 }));
 
 jest.mock('../../lib/firestoreService', () => ({
@@ -105,33 +110,37 @@ describe('useSubscription', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsPremiumActive.mockResolvedValue(false);
-    mockGetCurrentPackage.mockResolvedValue({
-      identifier: 'monthly',
-      product: {
-        priceString: '¥300',
-      },
+    mockGetCurrentProduct.mockResolvedValue({
+      productId: 'batsugaku_monthly_300',
+      title: 'Batsugaku Premium',
+      description: '月額プレミアムプラン',
+      price: '300',
+      localizedPrice: '¥300',
+      currency: 'JPY',
     });
     mockHasPremiumAccess.mockReturnValue(false);
   });
 
-  describe('revenueCatService関数のモック確認', () => {
-    it('initializeRevenueCatが正しくモックされている', async () => {
-      await mockInitializeRevenueCat('test-uid');
-      expect(mockInitializeRevenueCat).toHaveBeenCalledWith('test-uid');
+  describe('iapService関数のモック確認', () => {
+    it('initializeIAPが正しくモックされている', async () => {
+      await mockInitializeIAP('test-uid');
+      expect(mockInitializeIAP).toHaveBeenCalledWith('test-uid');
     });
 
-    it('setRevenueCatUserIdが正しくモックされている', async () => {
-      await mockSetRevenueCatUserId('test-uid');
-      expect(mockSetRevenueCatUserId).toHaveBeenCalledWith('test-uid');
+    it('setIAPUserIdが正しくモックされている', () => {
+      mockSetIAPUserId('test-uid');
+      expect(mockSetIAPUserId).toHaveBeenCalledWith('test-uid');
     });
 
-    it('getCurrentPackageが正しくモックされている', async () => {
-      const pkg = await mockGetCurrentPackage();
-      expect(pkg).toEqual({
-        identifier: 'monthly',
-        product: {
-          priceString: '¥300',
-        },
+    it('getCurrentProductが正しくモックされている', async () => {
+      const product = await mockGetCurrentProduct();
+      expect(product).toEqual({
+        productId: 'batsugaku_monthly_300',
+        title: 'Batsugaku Premium',
+        description: '月額プレミアムプラン',
+        price: '300',
+        localizedPrice: '¥300',
+        currency: 'JPY',
       });
     });
 
@@ -141,77 +150,71 @@ describe('useSubscription', () => {
     });
 
     it('formatPriceが正しくモックされている', () => {
-      const result = mockFormatPrice({ product: { priceString: '¥300' } });
+      const result = mockFormatPrice({ localizedPrice: '¥300' });
       expect(result).toBe('¥300');
     });
   });
 
   describe('購入フロー', () => {
-    it('purchasePackageが成功時にcustomerInfoを返す', async () => {
-      const mockCustomerInfo = {
-        entitlements: {
-          active: {
-            premium: {
-              productIdentifier: 'batsugaku_monthly_300',
-            },
-          },
-        },
+    it('purchaseSubscriptionが成功時にsubscriptionInfoを返す', async () => {
+      const mockSubscriptionInfo = {
+        isActive: true,
+        productId: 'batsugaku_monthly_300',
+        purchaseDate: new Date(),
+        expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        transactionId: 'tx_123',
+        receipt: 'mock_receipt',
       };
-      mockPurchasePackage.mockResolvedValue({ customerInfo: mockCustomerInfo });
+      mockPurchaseSubscription.mockResolvedValue(mockSubscriptionInfo);
 
-      const pkg = await mockGetCurrentPackage();
-      const result = await mockPurchasePackage(pkg);
+      const result = await mockPurchaseSubscription('batsugaku_monthly_300');
 
-      expect(result.customerInfo).toBeDefined();
-      expect(result.customerInfo.entitlements.active.premium).toBeDefined();
+      expect(result).toBeDefined();
+      expect(result.isActive).toBe(true);
+      expect(result.productId).toBe('batsugaku_monthly_300');
     });
 
     it('ユーザーがキャンセルした場合、nullを返す', async () => {
-      mockPurchasePackage.mockResolvedValue(null);
+      mockPurchaseSubscription.mockResolvedValue(null);
 
-      const pkg = await mockGetCurrentPackage();
-      const result = await mockPurchasePackage(pkg);
+      const result = await mockPurchaseSubscription('batsugaku_monthly_300');
 
       expect(result).toBeNull();
     });
 
     it('購入エラー時にエラーをスローする', async () => {
-      mockPurchasePackage.mockRejectedValue(new Error('Purchase failed'));
+      mockPurchaseSubscription.mockRejectedValue(new Error('Purchase failed'));
 
-      const pkg = await mockGetCurrentPackage();
-      await expect(mockPurchasePackage(pkg)).rejects.toThrow('Purchase failed');
+      await expect(
+        mockPurchaseSubscription('batsugaku_monthly_300')
+      ).rejects.toThrow('Purchase failed');
     });
   });
 
   describe('復元フロー', () => {
-    it('restorePurchasesが成功時にcustomerInfoを返す', async () => {
-      const mockCustomerInfo = {
-        entitlements: {
-          active: {
-            premium: {
-              productIdentifier: 'batsugaku_monthly_300',
-            },
-          },
-        },
+    it('restoreIAPPurchasesが成功時にsubscriptionInfoを返す', async () => {
+      const mockSubscriptionInfo = {
+        isActive: true,
+        productId: 'batsugaku_monthly_300',
+        purchaseDate: new Date(),
+        expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        transactionId: 'tx_123',
+        receipt: 'mock_receipt',
       };
-      mockRestorePurchases.mockResolvedValue(mockCustomerInfo);
+      mockRestoreIAPPurchases.mockResolvedValue(mockSubscriptionInfo);
 
-      const result = await mockRestorePurchases();
+      const result = await mockRestoreIAPPurchases();
 
-      expect(result.entitlements.active.premium).toBeDefined();
+      expect(result.isActive).toBe(true);
+      expect(result.productId).toBe('batsugaku_monthly_300');
     });
 
-    it('復元できる購入がない場合、空のエンタイトルメントを返す', async () => {
-      const mockCustomerInfo = {
-        entitlements: {
-          active: {},
-        },
-      };
-      mockRestorePurchases.mockResolvedValue(mockCustomerInfo);
+    it('復元できる購入がない場合、nullを返す', async () => {
+      mockRestoreIAPPurchases.mockResolvedValue(null);
 
-      const result = await mockRestorePurchases();
+      const result = await mockRestoreIAPPurchases();
 
-      expect(result.entitlements.active.premium).toBeUndefined();
+      expect(result).toBeNull();
     });
   });
 
@@ -235,8 +238,8 @@ describe('useSubscription', () => {
     });
   });
 
-  describe('customerInfoToUserSubscription', () => {
-    it('アクティブなエンタイトルメントをUserSubscriptionに変換する', () => {
+  describe('iapInfoToUserSubscription', () => {
+    it('アクティブなサブスクリプションをUserSubscriptionに変換する', () => {
       const mockSubscription = {
         isActive: true,
         productId: 'batsugaku_monthly_300',
@@ -244,29 +247,31 @@ describe('useSubscription', () => {
         expiresAt: mockTimestamp as any,
         originalTransactionId: 'tx_123',
       };
-      mockCustomerInfoToUserSubscription.mockReturnValue(mockSubscription);
+      mockIapInfoToUserSubscription.mockReturnValue(mockSubscription);
 
-      const result = mockCustomerInfoToUserSubscription({
-        entitlements: {
-          active: {
-            premium: {
-              productIdentifier: 'batsugaku_monthly_300',
-            },
-          },
-        },
+      const result = mockIapInfoToUserSubscription({
+        isActive: true,
+        productId: 'batsugaku_monthly_300',
+        purchaseDate: new Date(),
+        expirationDate: new Date(),
+        transactionId: 'tx_123',
+        receipt: 'mock_receipt',
       });
 
       expect(result.isActive).toBe(true);
       expect(result.productId).toBe('batsugaku_monthly_300');
     });
 
-    it('エンタイトルメントがない場合、nullを返す', () => {
-      mockCustomerInfoToUserSubscription.mockReturnValue(null);
+    it('非アクティブな場合、nullを返す', () => {
+      mockIapInfoToUserSubscription.mockReturnValue(null);
 
-      const result = mockCustomerInfoToUserSubscription({
-        entitlements: {
-          active: {},
-        },
+      const result = mockIapInfoToUserSubscription({
+        isActive: false,
+        productId: 'batsugaku_monthly_300',
+        purchaseDate: new Date(),
+        expirationDate: new Date(),
+        transactionId: 'tx_123',
+        receipt: 'mock_receipt',
       });
 
       expect(result).toBeNull();
@@ -295,6 +300,14 @@ describe('useSubscription', () => {
       await mockOpenSubscriptionManagement();
 
       expect(mockOpenSubscriptionManagement).toHaveBeenCalled();
+    });
+  });
+
+  describe('クリーンアップ', () => {
+    it('endIAPConnectionが正しくモックされている', async () => {
+      await mockEndIAPConnection();
+
+      expect(mockEndIAPConnection).toHaveBeenCalled();
     });
   });
 });

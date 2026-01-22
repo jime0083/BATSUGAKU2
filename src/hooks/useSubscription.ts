@@ -1,27 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
-import { PurchasesPackage, CustomerInfo } from 'react-native-purchases';
 import {
-  initializeRevenueCat,
-  setRevenueCatUserId,
-  getCurrentPackage,
-  purchasePackage,
-  restorePurchases,
-  getCustomerInfo,
+  initializeIAP,
+  setIAPUserId,
+  getCurrentProduct,
+  purchaseSubscription,
+  restoreIAPPurchases,
+  getCurrentSubscriptionInfo,
   isPremiumActive,
-  customerInfoToUserSubscription,
+  iapInfoToUserSubscription,
   openSubscriptionManagement,
   formatPrice,
-  logOutRevenueCat,
-} from '../lib/revenueCatService';
+  endIAPConnection,
+  IAPProduct,
+  PRODUCT_IDS,
+} from '../lib/iapService';
 import { updateUser } from '../lib/firestoreService';
-import { User, UserSubscription } from '../types';
+import { User } from '../types';
 import { hasPremiumAccess } from '../lib/subscription';
 
 export interface SubscriptionState {
   isInitialized: boolean;
   isLoading: boolean;
   isPremium: boolean;
-  currentPackage: PurchasesPackage | null;
+  currentProduct: IAPProduct | null;
   error: Error | null;
 }
 
@@ -38,7 +39,7 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
     isInitialized: false,
     isLoading: true,
     isPremium: false,
-    currentPackage: null,
+    currentProduct: null,
     error: null,
   });
 
@@ -54,7 +55,7 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
         return;
       }
 
-      // 管理者チェック（RevenueCat初期化前にチェック）
+      // 管理者チェック（IAP初期化前にチェック）
       if (user.isAdmin) {
         setState((prev) => ({
           ...prev,
@@ -66,12 +67,12 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
       }
 
       try {
-        // RevenueCat初期化
-        await initializeRevenueCat(user.uid);
-        await setRevenueCatUserId(user.uid);
+        // IAP初期化
+        await initializeIAP(user.uid);
+        setIAPUserId(user.uid);
 
-        // 現在のパッケージを取得
-        const pkg = await getCurrentPackage();
+        // 現在の商品を取得
+        const product = await getCurrentProduct();
 
         // プレミアム状態を確認
         const premium = await isPremiumActive();
@@ -80,7 +81,7 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
           isInitialized: true,
           isLoading: false,
           isPremium: premium || hasPremiumAccess(user),
-          currentPackage: pkg,
+          currentProduct: product,
           error: null,
         });
       } catch (error) {
@@ -96,6 +97,11 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
     };
 
     initialize();
+
+    // クリーンアップ
+    return () => {
+      endIAPConnection();
+    };
   }, [user?.uid, user?.isAdmin]);
 
   // 状態を更新
@@ -107,12 +113,12 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
     setState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      const customerInfo = await getCustomerInfo();
+      const subscriptionInfo = await getCurrentSubscriptionInfo();
       const premium = await isPremiumActive();
 
       // Firestoreを更新
-      if (customerInfo) {
-        const subscription = customerInfoToUserSubscription(customerInfo);
+      if (subscriptionInfo) {
+        const subscription = iapInfoToUserSubscription(subscriptionInfo);
         if (subscription) {
           await updateUser(user.uid, { subscription });
         }
@@ -134,20 +140,14 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
 
   // 購入
   const purchase = useCallback(async (): Promise<boolean> => {
-    if (!state.currentPackage) {
-      setState((prev) => ({
-        ...prev,
-        error: new Error('No package available'),
-      }));
-      return false;
-    }
+    const productId = state.currentProduct?.productId || PRODUCT_IDS.MONTHLY_300;
 
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const customerInfo = await purchasePackage(state.currentPackage);
+      const subscriptionInfo = await purchaseSubscription(productId);
 
-      if (!customerInfo) {
+      if (!subscriptionInfo) {
         // ユーザーがキャンセル
         setState((prev) => ({ ...prev, isLoading: false }));
         return false;
@@ -155,7 +155,7 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
 
       // Firestoreを更新
       if (user) {
-        const subscription = customerInfoToUserSubscription(customerInfo);
+        const subscription = iapInfoToUserSubscription(subscriptionInfo);
         if (subscription) {
           await updateUser(user.uid, { subscription });
         }
@@ -176,25 +176,25 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
       }));
       return false;
     }
-  }, [state.currentPackage, user]);
+  }, [state.currentProduct, user]);
 
   // 復元
   const restore = useCallback(async (): Promise<boolean> => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const customerInfo = await restorePurchases();
+      const subscriptionInfo = await restoreIAPPurchases();
 
-      if (!customerInfo) {
+      if (!subscriptionInfo) {
         setState((prev) => ({ ...prev, isLoading: false }));
         return false;
       }
 
-      const premium = !!customerInfo.entitlements.active['premium'];
+      const premium = subscriptionInfo.isActive;
 
       // Firestoreを更新
       if (user && premium) {
-        const subscription = customerInfoToUserSubscription(customerInfo);
+        const subscription = iapInfoToUserSubscription(subscriptionInfo);
         if (subscription) {
           await updateUser(user.uid, { subscription });
         }
@@ -231,11 +231,11 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
 
   // 価格を取得
   const getPrice = useCallback((): string => {
-    if (state.currentPackage) {
-      return formatPrice(state.currentPackage);
+    if (state.currentProduct) {
+      return formatPrice(state.currentProduct);
     }
     return '¥300/月';
-  }, [state.currentPackage]);
+  }, [state.currentProduct]);
 
   return {
     ...state,

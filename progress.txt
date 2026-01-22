@@ -2,7 +2,7 @@
 BATSUGAKU (バツガク) - 実装進捗管理
 ================================================================================
 
-最終更新: 2026-01-20
+最終更新: 2026-01-21
 設定: Everything Claude Code (cogsec) 使用
 
 ================================================================================
@@ -169,15 +169,16 @@ BATSUGAKU (バツガク) - 実装進捗管理
     - [x] UserSubscription型追加                      完了: 2026-01-20
     - [x] subscription.ts（アクセス判定ユーティリティ）完了: 2026-01-20
     - [x] subscriptionテスト（22件）                  完了: 2026-01-20
-[x] 9.1 RevenueCat設定                               完了: 2026-01-20
-    - [x] react-native-purchases導入                  完了: 2026-01-20
-    - [x] revenueCatService.ts作成                    完了: 2026-01-20
-    - [x] useSubscriptionフック作成                   完了: 2026-01-20
-    - [x] revenueCatServiceテスト（6件）              完了: 2026-01-20
-    - [x] useSubscriptionテスト（16件）               完了: 2026-01-20
-    - [ ] RevenueCatアカウント作成（外部作業）
+[x] 9.1 react-native-iap設定（RevenueCatから移行）   完了: 2026-01-21
+    - [x] react-native-iap導入                        完了: 2026-01-21
+    - [x] iapService.ts作成                           完了: 2026-01-21
+    - [x] useSubscriptionフック更新                   完了: 2026-01-21
+    - [x] iapServiceテスト作成                        完了: 2026-01-21
+    - [x] useSubscriptionテスト更新                   完了: 2026-01-21
+    - [x] レシート検証Cloud Function作成             完了: 2026-01-21
     - [ ] App Store Connect設定（外部作業）
     - [ ] 商品登録（月額300円）（外部作業）
+    - [ ] Cloud Functions シークレット設定（外部作業）
 [x] 9.2 Paywall画面                                  完了: 2026-01-20
     - [x] PaywallScreen.tsx作成                       完了: 2026-01-20
     - [x] 購入促進UI作成                              完了: 2026-01-20
@@ -251,7 +252,8 @@ TypeScript型チェック: エラーなし
 - src/lib/dailyCheckService.ts       日次チェック統合サービス
 - src/lib/firestoreService.ts        Firestoreデータ操作
 - src/lib/subscription.ts            サブスクリプション判定
-- src/lib/revenueCatService.ts       RevenueCat連携サービス
+- src/lib/iapService.ts              アプリ内課金サービス（react-native-iap）
+- src/lib/revenueCatService.ts       (レガシー、削除予定)
 - src/lib/notificationService.ts     通知サービス
 - src/lib/utils/stats.ts             統計管理
 - src/hooks/useDashboardData.ts      ダッシュボード用カスタムフック
@@ -275,6 +277,7 @@ TypeScript型チェック: エラーなし
 - functions/src/dailyCheck.ts        日次チェックロジック
 - functions/src/twitter.ts           X API連携（Functions用）
 - functions/src/github.ts            GitHub API連携（Functions用）
+- functions/src/receiptValidation.ts レシート検証（iOS/Android）
 
 【Firebase設定】
 - firebase.json                      Firebase設定
@@ -292,7 +295,8 @@ TypeScript型チェック: エラーなし
 - src/__tests__/lib/firestoreService.test.ts   Firestoreサービステスト
 - src/__tests__/lib/dailyCheckService.test.ts  日次チェック統合テスト
 - src/__tests__/lib/subscription.test.ts       サブスクリプション判定テスト
-- src/__tests__/lib/revenueCatService.test.ts  RevenueCatサービステスト
+- src/__tests__/lib/iapService.test.ts         アプリ内課金サービステスト
+- src/__tests__/lib/revenueCatService.test.ts  (レガシー、削除予定)
 - src/__tests__/lib/notificationService.test.ts 通知サービステスト
 - src/__tests__/hooks/useDashboardData.test.ts ダッシュボードフックテスト
 - src/__tests__/hooks/useSubscription.test.ts  サブスクリプションフックテスト
@@ -305,11 +309,13 @@ TypeScript型チェック: エラーなし
 1. Phase 10.2-10.3: 統合テスト・E2Eテスト ← 次はここ
    - 理由: リリース前の品質保証
 2. 外部作業（並行して進める）
-   - RevenueCatアカウント作成
    - App Store Connect設定
    - 商品登録（月額300円）
    - Firebase Blazeプラン・Cloud Functionsデプロイ
-   - Cloud Functions シークレット設定
+   - Cloud Functions シークレット設定（APPLE_SHARED_SECRET, GOOGLE_SERVICE_ACCOUNT_JSON）
    詳細は manual-work.txt を参照
+3. レガシーコード削除
+   - src/lib/revenueCatService.ts
+   - src/__tests__/lib/revenueCatService.test.ts
 
 ================================================================================

@@ -33,19 +33,20 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMonthlyStats = exports.getDailyStats = exports.checkSingleUser = exports.manualDailyCheck = exports.dailyAutoCheck = void 0;
+exports.getSubscriptionStatus = exports.verifyAndroidReceipt = exports.verifyIosReceipt = exports.getMonthlyStats = exports.getDailyStats = exports.checkSingleUser = exports.manualDailyCheck = exports.dailyAutoCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const dailyCheck_1 = require("./dailyCheck");
 const twitter_1 = require("./twitter");
+const receiptValidation_1 = require("./receiptValidation");
 // Firebase Admin初期化
 admin.initializeApp();
 // 環境変数（Firebase Functions secrets）
-const xClientId = (0, params_1.defineString)('X_CLIENT_ID');
-const xClientSecret = (0, params_1.defineString)('X_CLIENT_SECRET');
-const adminXAccessToken = (0, params_1.defineString)('ADMIN_X_ACCESS_TOKEN', { default: '' });
+const xClientId = (0, params_1.defineSecret)('X_CLIENT_ID');
+const xClientSecret = (0, params_1.defineSecret)('X_CLIENT_SECRET');
+const adminXAccessToken = (0, params_1.defineSecret)('ADMIN_X_ACCESS_TOKEN');
 /**
  * 日次自動チェック（毎日0:00 JST実行）
  *
@@ -58,7 +59,8 @@ exports.dailyAutoCheck = (0, scheduler_1.onSchedule)({
     retryCount: 3,
     memory: '512MiB',
     timeoutSeconds: 540, // 9分
-}, async (event) => {
+    secrets: [xClientId, xClientSecret, adminXAccessToken],
+}, async (_event) => {
     console.log('Starting daily auto check at', new Date().toISOString());
     try {
         const results = await (0, dailyCheck_1.performDailyCheckForAllUsers)(xClientId.value(), xClientSecret.value());
@@ -98,6 +100,7 @@ exports.dailyAutoCheck = (0, scheduler_1.onSchedule)({
 exports.manualDailyCheck = (0, https_1.onCall)({
     memory: '512MiB',
     timeoutSeconds: 300,
+    secrets: [xClientId, xClientSecret],
 }, async (request) => {
     // 認証チェック
     if (!request.auth) {
@@ -136,6 +139,7 @@ exports.manualDailyCheck = (0, https_1.onCall)({
 exports.checkSingleUser = (0, https_1.onCall)({
     memory: '256MiB',
     timeoutSeconds: 60,
+    secrets: [xClientId, xClientSecret],
 }, async (request) => {
     var _a;
     // 認証チェック
@@ -216,5 +220,126 @@ exports.getMonthlyStats = (0, https_1.onCall)({
     }), { totalStudyCount: 0, totalSkipCount: 0, daysWithData: 0 });
     return Object.assign(Object.assign({ year,
         month }, totals), { dailyData });
+});
+// シークレット定義（レシート検証用）
+const appleSharedSecret = (0, params_1.defineSecret)('APPLE_SHARED_SECRET');
+const googleServiceAccountJson = (0, params_1.defineSecret)('GOOGLE_SERVICE_ACCOUNT_JSON');
+/**
+ * iOSレシート検証
+ *
+ * クライアントから送られたレシートをApple App Storeで検証し、
+ * 有効な場合はFirestoreのユーザーデータを更新
+ */
+exports.verifyIosReceipt = (0, https_1.onCall)({
+    memory: '256MiB',
+    timeoutSeconds: 60,
+    secrets: [appleSharedSecret],
+}, async (request) => {
+    var _a;
+    // 認証チェック
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Authentication required');
+    }
+    const { receipt } = request.data || {};
+    if (!receipt) {
+        throw new https_1.HttpsError('invalid-argument', 'Receipt is required');
+    }
+    try {
+        const result = await (0, receiptValidation_1.verifyAppleReceipt)(receipt, appleSharedSecret.value());
+        if (result.isValid) {
+            await (0, receiptValidation_1.saveSubscriptionToFirestore)(request.auth.uid, result);
+        }
+        return {
+            success: result.isValid,
+            productId: result.productId,
+            expirationDate: ((_a = result.expirationDate) === null || _a === void 0 ? void 0 : _a.toISOString()) || null,
+            isExpired: result.isExpired,
+            error: result.error,
+        };
+    }
+    catch (error) {
+        console.error('iOS receipt verification failed:', error);
+        throw new https_1.HttpsError('internal', error instanceof Error ? error.message : 'Unknown error');
+    }
+});
+/**
+ * Androidレシート検証
+ *
+ * クライアントから送られた購入トークンをGoogle Play Developer APIで検証し、
+ * 有効な場合はFirestoreのユーザーデータを更新
+ */
+exports.verifyAndroidReceipt = (0, https_1.onCall)({
+    memory: '256MiB',
+    timeoutSeconds: 60,
+    secrets: [googleServiceAccountJson],
+}, async (request) => {
+    var _a;
+    // 認証チェック
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Authentication required');
+    }
+    const { purchaseToken, subscriptionId } = request.data || {};
+    if (!purchaseToken || !subscriptionId) {
+        throw new https_1.HttpsError('invalid-argument', 'purchaseToken and subscriptionId are required');
+    }
+    try {
+        const serviceAccountCredentials = JSON.parse(googleServiceAccountJson.value());
+        const result = await (0, receiptValidation_1.verifyGoogleReceipt)('com.batsugaku.app', // パッケージ名
+        subscriptionId, purchaseToken, serviceAccountCredentials);
+        if (result.isValid) {
+            await (0, receiptValidation_1.saveSubscriptionToFirestore)(request.auth.uid, result);
+        }
+        return {
+            success: result.isValid,
+            productId: result.productId,
+            expirationDate: ((_a = result.expirationDate) === null || _a === void 0 ? void 0 : _a.toISOString()) || null,
+            isExpired: result.isExpired,
+            error: result.error,
+        };
+    }
+    catch (error) {
+        console.error('Android receipt verification failed:', error);
+        throw new https_1.HttpsError('internal', error instanceof Error ? error.message : 'Unknown error');
+    }
+});
+/**
+ * サブスクリプション状態確認
+ *
+ * ユーザーの現在のサブスクリプション状態を返す
+ */
+exports.getSubscriptionStatus = (0, https_1.onCall)({
+    memory: '128MiB',
+    timeoutSeconds: 30,
+}, async (request) => {
+    var _a, _b;
+    // 認証チェック
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Authentication required');
+    }
+    const db = admin.firestore();
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (!userDoc.exists) {
+        throw new https_1.HttpsError('not-found', 'User not found');
+    }
+    const userData = userDoc.data();
+    const subscription = userData === null || userData === void 0 ? void 0 : userData.subscription;
+    if (!subscription) {
+        return {
+            isActive: false,
+            isPremium: (userData === null || userData === void 0 ? void 0 : userData.isAdmin) || false,
+            productId: null,
+            expirationDate: null,
+        };
+    }
+    // 有効期限チェック
+    const expiresAt = ((_b = (_a = subscription.expiresAt) === null || _a === void 0 ? void 0 : _a.toDate) === null || _b === void 0 ? void 0 : _b.call(_a)) || null;
+    const isExpired = expiresAt ? expiresAt < new Date() : false;
+    return {
+        isActive: subscription.isActive && !isExpired,
+        isPremium: (userData === null || userData === void 0 ? void 0 : userData.isAdmin) || (subscription.isActive && !isExpired),
+        productId: subscription.productId,
+        expirationDate: (expiresAt === null || expiresAt === void 0 ? void 0 : expiresAt.toISOString()) || null,
+        isExpired,
+    };
 });
 //# sourceMappingURL=index.js.map
