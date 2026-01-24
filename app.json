@@ -48,8 +48,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "7a40fbfa-2f12-4ec0-8d7b-ace5ad6063a7"
       }
-    }
+    },
+    "owner": "mikel0083"
   }
 }

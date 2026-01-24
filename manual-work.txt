@@ -23,6 +23,10 @@ BATSUGAKU (バツガク) - 手動作業リスト
 更新履歴
 ================================================================================
 
+- 2026-01-24: 7.1-7.4 完了（本番リリース前作業完了）
+- 2026-01-24: 6.1 完了（環境変数設定完了）
+- 2026-01-24: 5.1-5.4 完了（EAS設定完了、5.5は後で）
+- 2026-01-24: 4.1-4.3 完了（OAuth設定完了）
 - 2026-01-24: 3.1-3.6 完了（Firebase設定完了）
 - 2026-01-24: 2.5 完了
 - 2026-01-24: 1.2, 2.3 完了
@@ -143,56 +147,21 @@ BATSUGAKU (バツガク) - 手動作業リスト
 
 【優先度: 高】GitHub/X連携に必須
 
-□ 4.1 GitHub OAuth App設定
+[x] 4.1 GitHub OAuth App設定                          ← 完了: 2026-01-24
    - URL: https://github.com/settings/developers
-   - 「New OAuth App」をクリック
+   - Application name: BatsuGaku
+   - Client ID / Client Secret: 設定済み（.env）
 
-   【設定値】
-   - Application name: バツガク
-   - Homepage URL: https://batsugaku.app（または仮URL）
-   - Authorization callback URL:
-     exp://localhost:8081/--/auth/github
-     または
-     batsugaku://auth/github
-
-   【取得する値】
-   - Client ID → EXPO_PUBLIC_GITHUB_CLIENT_ID
-   - Client Secret → EXPO_PUBLIC_GITHUB_CLIENT_SECRET
-
-□ 4.2 X (Twitter) Developer Portal設定
+[x] 4.2 X (Twitter) Developer Portal設定              ← 完了: 2026-01-24
    - URL: https://developer.twitter.com/en/portal/dashboard
-   - Free Tierで可（月1,500ツイートまで）
-
-   【Project作成】
-   - Project名: Batsugaku
    - App名: Batsugaku
+   - Client ID / Client Secret: 設定済み（.env, Cloud Functions）
 
-   【User authentication settings】
-   - OAuth 2.0を有効化
-   - Type: Native App
-   - Callback URI:
-     exp://localhost:8081/--/auth/twitter
-     または
-     batsugaku://auth/twitter
-   - Website URL: https://batsugaku.app（または仮URL）
-
-   【取得する値】
-   - Client ID → EXPO_PUBLIC_X_CLIENT_ID
-   - Client Secret → EXPO_PUBLIC_X_CLIENT_SECRET
-
-□ 4.3 Google OAuth設定（Firebase経由）
-   - Firebase Console > Authentication > Sign-in method
-   - Google を有効化
-
-   【Google Cloud Console】
-   - URL: https://console.cloud.google.com/
-   - APIs & Services > Credentials
-   - OAuth 2.0 Client IDを確認
-
-   【取得する値】
-   - Web Client ID → EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
-   - iOS Client ID → EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
-   - Android Client ID → EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
+[x] 4.3 Google OAuth設定（Firebase経由）              ← 完了: 2026-01-24
+   - Firebase Console > Authentication > Sign-in method > Google: 有効
+   - Web Client ID: 設定済み（.env）
+   - ※iOS Client IDは必要に応じて後で作成
+   - ※Android Client IDは不要（iOS専用）
 
 ================================================================================
 5. Expo/EAS設定
@@ -200,25 +169,24 @@ BATSUGAKU (バツガク) - 手動作業リスト
 
 【優先度: 中】プッシュ通知・ビルドに必須
 
-□ 5.1 Expo アカウント確認
-   - URL: https://expo.dev/
-   - アカウントがない場合は作成
+[x] 5.1 Expo アカウント確認                           ← 完了: 2026-01-24
+   - ログインユーザー: mikel0083
 
-□ 5.2 EAS CLIインストール
-   - npm install -g eas-cli
-   - eas login
+[x] 5.2 EAS CLIインストール                           ← 完了: 2026-01-24
+   - EAS CLI: 16.26.0
+   - eas login: 済
 
-□ 5.3 EASプロジェクト設定
-   - eas init
-   - プロジェクトIDを取得
+[x] 5.3 EASプロジェクト設定                           ← 完了: 2026-01-24
+   - Project ID: 7a40fbfa-2f12-4ec0-8d7b-ace5ad6063a7
+   - URL: https://expo.dev/accounts/mikel0083/projects/batsugaku
 
-□ 5.4 app.jsonのprojectId更新
-   - app.json > expo > extra > eas > projectId
-   - 取得したIDに変更
+[x] 5.4 app.jsonのprojectId更新                       ← 完了: 2026-01-24
+   - app.json自動更新済み
 
-□ 5.5 プッシュ通知の資格情報設定（iOS）
+□ 5.5 プッシュ通知の資格情報設定（iOS）           ← 後で設定
    - eas credentials
    - Push Notification Keyを設定
+   - ※リリース前に設定が必要
 
 ================================================================================
 6. 環境変数（.env）設定
@@ -226,34 +194,16 @@ BATSUGAKU (バツガク) - 手動作業リスト
 
 【優先度: 高】アプリ動作に必須
 
-□ 6.1 .envファイル作成
-   プロジェクトルートに.envファイルを作成し、以下を設定:
+[x] 6.1 .envファイル作成                              ← 完了: 2026-01-24
 
-   ```
-   # Firebase
-   EXPO_PUBLIC_FIREBASE_API_KEY=
-   EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
-   EXPO_PUBLIC_FIREBASE_PROJECT_ID=
-   EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
-   EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-   EXPO_PUBLIC_FIREBASE_APP_ID=
+   【設定済み】
+   - Firebase: 全項目 ✓
+   - Google OAuth: Web Client ID ✓ (iOS Client IDは後で)
+   - X (Twitter) OAuth: 全項目 ✓
+   - GitHub OAuth: 全項目 ✓
 
-   # Google OAuth
-   EXPO_PUBLIC_GOOGLE_CLIENT_ID=
-   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=
-   EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=
-   EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
-
-   # X (Twitter) OAuth
-   EXPO_PUBLIC_X_CLIENT_ID=
-   EXPO_PUBLIC_X_CLIENT_SECRET=
-
-   # GitHub OAuth
-   EXPO_PUBLIC_GITHUB_CLIENT_ID=
-   EXPO_PUBLIC_GITHUB_CLIENT_SECRET=
-   ```
-
-   ※ RevenueCatは不要になりました（react-native-iapに移行済み）
+   ※ RevenueCatは不要（react-native-iapに移行済み）
+   ※ Android関連は不要（iOS専用）
 
 ================================================================================
 7. 本番リリース前の作業
@@ -261,19 +211,18 @@ BATSUGAKU (バツガク) - 手動作業リスト
 
 【優先度: 低】リリース直前に実施
 
-□ 7.1 プライバシーポリシー作成
-   - サブスク販売にはApple審査で必須
+[x] 7.1 プライバシーポリシー作成                      ← 完了: 2026-01-24
+   - ファイル: docs/privacy-policy.md
    - ユーザーデータの取り扱いを明記
 
-□ 7.2 利用規約作成
-   - サブスク販売には必須
+[x] 7.2 利用規約作成                                  ← 完了: 2026-01-24
+   - ファイル: docs/terms-of-service.md
    - 自動更新の説明を含める
 
-□ 7.3 App Store審査用スクリーンショット
+[x] 7.3 App Store審査用スクリーンショット              ← 完了: 2026-01-24以前
    - iPhone 6.7インチ、6.5インチ、5.5インチ
-   - iPad Pro 12.9インチ（タブレット対応時）
 
-□ 7.4 App Store説明文
+[x] 7.4 App Store説明文                               ← 完了: 2026-01-24以前
    - 日本語での説明文作成
    - キーワード設定
 
@@ -282,25 +231,25 @@ BATSUGAKU (バツガク) - 手動作業リスト
 ================================================================================
 
 サブスク機能を有効にするために必須:
-□ レシート検証シークレット設定完了（セクション1）
-□ App Store Connect設定完了（セクション2）
-□ 環境変数設定完了（セクション6）
-□ Cloud Functions デプロイ完了（セクション3.6）
+[x] レシート検証シークレット設定完了（セクション1）
+[x] App Store Connect設定完了（セクション2）
+[x] 環境変数設定完了（セクション6）
+[x] Cloud Functions デプロイ完了（セクション3.6）
 
 OAuth連携を有効にするために必須:
-□ GitHub OAuth設定完了（セクション4.1）
-□ X OAuth設定完了（セクション4.2）
-□ Google OAuth設定完了（セクション4.3）
-□ 環境変数設定完了（セクション6）
+[x] GitHub OAuth設定完了（セクション4.1）
+[x] X OAuth設定完了（セクション4.2）
+[x] Google OAuth設定完了（セクション4.3）
+[x] 環境変数設定完了（セクション6）
 
 Cloud Functionsを使用するために必須:
-□ Firebase Blazeプラン（セクション3.2）
-□ Cloud Functions有効化（セクション3.3）
-□ Firebase CLI設定（セクション3.4）
+[x] Firebase Blazeプラン（セクション3.2）
+[x] Cloud Functions有効化（セクション3.3）
+[x] Firebase CLI設定（セクション3.4）
 
 プッシュ通知を有効にするために必須:
-□ EAS設定完了（セクション5）
-□ プッシュ通知資格情報設定（セクション5.5）
+[x] EAS設定完了（セクション5.1-5.4）
+□ プッシュ通知資格情報設定（セクション5.5）← 後で設定
 
 ================================================================================
 参考リンク
