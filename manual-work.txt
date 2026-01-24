@@ -5,7 +5,31 @@ BATSUGAKU (バツガク) - 手動作業リスト
 このファイルには、開発者が手動で行う必要がある外部サービスの設定作業を
 記載しています。コード実装では対応できない作業です。
 
-最終更新: 2026-01-21
+最終更新: 2026-01-24
+
+================================================================================
+更新方法
+================================================================================
+
+手動作業が完了したら、必ず以下のいずれかを実行してください：
+1. `/update-manual-work` コマンドを実行（推奨）
+2. 手動でこのファイルを編集し、完了項目に `[x]` と完了日を記録
+
+フォーマット例:
+  □ 未完了の項目
+  [x] 完了した項目                                 ← 完了: 2026-01-24
+
+================================================================================
+更新履歴
+================================================================================
+
+- 2026-01-24: 3.1-3.6 完了（Firebase設定完了）
+- 2026-01-24: 2.5 完了
+- 2026-01-24: 1.2, 2.3 完了
+- 2026-01-24: 1.3/1.4 削除（Android不要）
+- 2026-01-24: 1.1, 2.1, 2.2, 2.4 完了確認・更新
+- 2026-01-24: 更新フォーマット追加、スキル対応
+- 2026-01-21: RevenueCatからreact-native-iapに移行
 
 ================================================================================
 1. レシート検証シークレット設定（サブスクリプション）
@@ -15,9 +39,11 @@ BATSUGAKU (バツガク) - 手動作業リスト
 
 ※ RevenueCatからreact-native-iapに移行しました（2026-01-21）
 
-□ 1.1 Apple Shared Secret取得
+[x] 1.1 Apple Shared Secret取得                    ← 完了: 2026-01-21
    - App Store Connect > アプリ > App情報 > App内課金
    - 「App-Specific Shared Secret」を生成
+   - シークレット: 8f93838b78d34e7992f38dc96f27abfd
+
 
 □ 1.2 Firebase Cloud Functionsシークレット設定
    以下のコマンドで環境変数（シークレット）を設定:
@@ -28,22 +54,7 @@ BATSUGAKU (バツガク) - 手動作業リスト
    # 1.1で取得したShared Secretを入力
    ```
 
-□ 1.3 Google Play サービスアカウント設定（Android用）
-   - Google Cloud Console > IAM & Admin > Service Accounts
-   - サービスアカウントを作成
-   - 役割: Play Console API アクセス
-   - JSONキーをダウンロード
-
-   ```bash
-   # Google Service Account JSON（Androidレシート検証用）
-   firebase functions:secrets:set GOOGLE_SERVICE_ACCOUNT_JSON
-   # ダウンロードしたJSONの内容を入力
-   ```
-
-□ 1.4 Google Play Console設定（Android用）
-   - Google Play Console > 設定 > API アクセス
-   - サービスアカウントをリンク
-   - 財務データへのアクセス権限を付与
+※ 1.3, 1.4 は Android用のため削除（iOSのみ対応）
 
 ================================================================================
 2. App Store Connect設定（iOS課金）
@@ -51,20 +62,21 @@ BATSUGAKU (バツガク) - 手動作業リスト
 
 【優先度: 高】iOSでのサブスク販売に必須
 
-□ 2.1 Apple Developer Program登録
+[x] 2.1 Apple Developer Program登録                 ← 完了: 2026-01-21以前
    - URL: https://developer.apple.com/programs/
    - 年額$99（約15,000円）
    - 既に登録済みの場合はスキップ
 
-□ 2.2 App Store Connectでアプリ作成
+[x] 2.2 App Store Connectでアプリ作成               ← 完了: 2026-01-21以前
    - URL: https://appstoreconnect.apple.com/
    - Bundle ID: com.batsugaku.app
+   - アプリ名: Batsugaku
 
-□ 2.3 App内課金の設定
+[x] 2.3 App内課金の設定                              ← 完了: 2026-01-24
    - App Store Connect > アプリ > サブスクリプション
 
    【サブスクリプショングループ作成】
-   - グループ名: バツガクプレミアム
+   - グループ名: Batsugaku
 
    【商品作成】
    - 商品ID: batsugaku_monthly_300
@@ -72,15 +84,16 @@ BATSUGAKU (バツガク) - 手動作業リスト
    - 価格: ¥300/月
    - 表示名: バツガクプレミアム（月額）
    - 説明: 全機能が使える月額プラン
+   - Apple ID: 6758086939
 
-□ 2.4 App-Specific Shared Secret取得
+[x] 2.4 App-Specific Shared Secret取得              ← 完了: 2026-01-21
    - App Store Connect > アプリ > App情報 > App内課金
    - 「App-Specific Shared Secret」を生成
-   - RevenueCatに登録（1.3で使用）
+   - ※1.1と同じシークレットを使用
 
-□ 2.5 サンドボックステスター作成
+[x] 2.5 サンドボックステスター作成                    ← 完了: 2026-01-24
    - App Store Connect > ユーザーとアクセス > サンドボックス
-   - テスト用アカウントを作成
+   - テスト用アカウント: test@batsugaku.test (TestUser)
 
 ================================================================================
 3. Firebase設定
@@ -88,40 +101,41 @@ BATSUGAKU (バツガク) - 手動作業リスト
 
 【優先度: 中】Cloud Functionsに必須
 
-□ 3.1 Firebaseプロジェクト確認
+[x] 3.1 Firebaseプロジェクト確認                      ← 完了: 2026-01-24
    - URL: https://console.firebase.google.com/
-   - プロジェクトが存在することを確認
+   - プロジェクト: batsugaku
 
-□ 3.2 Blazeプラン（従量課金）へアップグレード
+[x] 3.2 Blazeプラン（従量課金）へアップグレード        ← 完了: 2026-01-24以前
    - Firebase Console > 設定 > 使用量と請求
    - 「Blazeプランにアップグレード」
    - ※Cloud Functionsの利用に必須
    - ※無料枠があるため、少量利用なら実質無料
 
-□ 3.3 Cloud Functions有効化
+[x] 3.3 Cloud Functions有効化                         ← 完了: 2026-01-24以前
    - Firebase Console > Functions
-   - 「開始する」をクリック
+   - Functions使用中（¥1）
 
-□ 3.4 Firebase CLIインストール（ローカル）
-   - npm install -g firebase-tools
-   - firebase login
-   - firebase use <your-project-id>
+[x] 3.4 Firebase CLIインストール（ローカル）           ← 完了: 2026-01-24
+   - Firebase CLI: 15.1.0
+   - firebase login: 済
+   - firebase use batsugaku: 済
 
-□ 3.5 Cloud Functions シークレット設定
+[x] 3.5 Cloud Functions シークレット設定              ← 完了: 2026-01-24
    - 以下のコマンドで環境変数（シークレット）を設定:
 
    ```bash
    # X (Twitter) API認証情報
-   firebase functions:secrets:set X_CLIENT_ID
-   firebase functions:secrets:set X_CLIENT_SECRET
+   firebase functions:secrets:set X_CLIENT_ID        ← 設定済み
+   firebase functions:secrets:set X_CLIENT_SECRET    ← 設定済み
 
    # 管理者用Xアクセストークン（統計ツイート用、オプション）
-   firebase functions:secrets:set ADMIN_X_ACCESS_TOKEN
+   # firebase functions:secrets:set ADMIN_X_ACCESS_TOKEN  ← スキップ
    ```
 
-□ 3.6 Cloud Functions デプロイ
+[x] 3.6 Cloud Functions デプロイ                      ← 完了: 2026-01-24
    - cd functions && npm install && npm run build
    - firebase deploy --only functions
+   - 8関数すべてデプロイ成功
 
 ================================================================================
 4. OAuth認証情報設定

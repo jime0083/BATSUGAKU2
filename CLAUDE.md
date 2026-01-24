@@ -18,6 +18,26 @@
 4. `progress.txt` を更新し、完了したタスクに `[x]` を付ける
 5. 完了日時を記録する
 
+## 重要: 手動作業（manual-work）更新ルール
+
+**外部サービス設定作業の完了時は必ず manual-work.txt を更新すること**
+
+手動作業（App Store Connect、Firebase Console、OAuth設定など）が完了したら：
+1. `/update-manual-work` コマンドを実行する
+2. 完了した項目に `[x]` を付ける
+3. 完了日時を記録する
+4. 必要に応じて progress.txt の関連タスクも更新する
+
+**利用可能なスラッシュコマンド:**
+| コマンド | 用途 |
+|---------|------|
+| /update-manual-work | 手動作業の完了報告・更新 |
+| /update-progress | progress.txtの更新 |
+| /plan | 機能実装の計画立案 |
+| /tdd | テスト駆動開発 |
+| /code-review | コードレビュー |
+| /build-fix | ビルドエラー修正 |
+
 ## プロジェクト概要
 
 Batsugaku（罰学）は、プログラマー向けの「罰ゲーム学習」アプリです。
@@ -84,6 +104,8 @@ Batsugaku（罰学）は、プログラマー向けの「罰ゲーム学習」�
 
 | コマンド | 用途 |
 |---------|------|
+| /update-manual-work | 手動作業の完了報告・更新 |
+| /update-progress | progress.txtの更新 |
 | /plan | 機能実装の計画立案 |
 | /tdd | テスト駆動開発 |
 | /code-review | コードレビュー |
