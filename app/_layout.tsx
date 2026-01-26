@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
@@ -6,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { COLORS } from '../src/constants';
+import { hasPremiumAccess } from '../src/lib/subscription';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
@@ -17,6 +17,12 @@ function RootLayoutNav() {
       </View>
     );
   }
+
+  // X/GitHub連携が完了しているかチェック
+  const isLinked = user?.xLinked && user?.githubLinked;
+
+  // プレミアムアクセスがあるかチェック（管理者またはサブスク加入者）
+  const isPremium = user ? hasPremiumAccess(user) : false;
 
   return (
     <Stack
@@ -34,16 +40,31 @@ function RootLayoutNav() {
       }}
     >
       {!user ? (
+        // 1. 未ログイン → 認証画面
         <Stack.Screen
           name="(auth)"
           options={{ headerShown: false }}
         />
+      ) : !isLinked ? (
+        // 2. ログイン済みだがX/GitHub未連携 → 連携画面
+        <Stack.Screen
+          name="linking"
+          options={{ headerShown: false }}
+        />
+      ) : !isPremium ? (
+        // 3. 連携済みだがサブスク未加入 → サブスク画面（必須）
+        <Stack.Screen
+          name="subscription"
+          options={{ headerShown: false }}
+        />
       ) : !user.onboardingCompleted ? (
+        // 4. サブスク加入済みだがオンボーディング未完了 → オンボーディング
         <Stack.Screen
           name="onboarding"
           options={{ headerShown: false }}
         />
       ) : (
+        // 5. 全て完了 → メイン画面
         <Stack.Screen
           name="(main)"
           options={{ headerShown: false }}
