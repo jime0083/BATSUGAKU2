@@ -1,0 +1,12 @@
+# Lottie Animations
+This folder contains Lottie animation JSON files for UI/UX improvements.
+
+## Usage
+Place `.json` files exported from LottieFiles or After Effects here.
+
+## Naming Convention
+- loading.json - Loading spinner
+- success.json - Success animation
+- error.json - Error animation
+- streak.json - Streak celebration
+- badge.json - Badge earned animation
