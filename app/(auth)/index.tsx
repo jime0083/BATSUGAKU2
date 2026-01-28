@@ -1,28 +1,40 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import LottieView from 'lottie-react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { COLORS, APP_NAME } from '../../src/constants';
+
+const PRIVACY_POLICY_URL = 'https://batugaku2-ad498.web.app/privacy-policy.html';
+const TERMS_URL = 'https://batugaku2-ad498.web.app/terms-of-service.html';
 
 export default function LoginScreen() {
   const { signInWithGoogle } = useAuth();
 
+  const handleOpenTerms = () => {
+    Linking.openURL(TERMS_URL);
+  };
+
+  const handleOpenPrivacy = () => {
+    Linking.openURL(PRIVACY_POLICY_URL);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* ロゴ・タイトル */}
-        <View style={styles.header}>
-          <Text style={styles.title}>{APP_NAME}</Text>
-          <Text style={styles.subtitle}>サボれない学習サポートアプリ</Text>
+        {/* Lottieアニメーション */}
+        <View style={styles.animationContainer}>
+          <LottieView
+            source={require('../../assets/animations/Growth Illustration.json')}
+            autoPlay
+            loop
+            style={styles.animation}
+          />
         </View>
 
-        {/* コンセプト説明 */}
-        <View style={styles.conceptBox}>
-          <Text style={styles.conceptTitle}>あなたの「サボり」を</Text>
-          <Text style={styles.conceptTitle}>フォロワーが監視</Text>
-          <Text style={styles.conceptDescription}>
-            GitHubにpushしないと{'\n'}
-            Xに自動でサボり投稿されます
-          </Text>
+        {/* キャッチコピー */}
+        <View style={styles.catchCopySection}>
+          <Text style={styles.catchCopyLine}>「サボり」をフォロワーが監視</Text>
+          <Text style={styles.catchCopyLine}>絶対サボれない</Text>
+          <Text style={styles.catchCopyLine}>学習習慣化サポートアプリ</Text>
         </View>
 
         {/* ログインボタン */}
@@ -32,22 +44,21 @@ export default function LoginScreen() {
             onPress={signInWithGoogle}
             activeOpacity={0.8}
           >
-            <View style={styles.googleIconContainer}>
-              <Text style={styles.googleIcon}>G</Text>
-            </View>
-            <Text style={styles.googleButtonText}>Googleでログイン</Text>
+            <Text style={styles.googleButtonText}>Googleアカウントでログイン</Text>
           </TouchableOpacity>
-
-          <Text style={styles.notice}>
-            ログイン後、XとGitHubの連携が必要です
-          </Text>
         </View>
 
         {/* フッター */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            ログインすることで利用規約に同意したものとみなします
-          </Text>
+          <View style={styles.footerLinks}>
+            <TouchableOpacity onPress={handleOpenTerms}>
+              <Text style={styles.footerLinkText}>利用規約</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerSpacer}>{'    '}</Text>
+            <TouchableOpacity onPress={handleOpenPrivacy}>
+              <Text style={styles.footerLinkText}>プライバシーポリシー</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -57,92 +68,65 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#ffffff',
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     justifyContent: 'space-between',
-    paddingVertical: 40,
+    paddingBottom: 40,
   },
-  header: {
+  animationContainer: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 20,
+    height: 280,
   },
-  title: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 8,
+  animation: {
+    width: 320,
+    height: 280,
   },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
+  catchCopySection: {
+    marginTop: 8,
   },
-  conceptBox: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  conceptTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.accent,
-    textAlign: 'center',
-  },
-  conceptDescription: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: 16,
-    lineHeight: 22,
+  catchCopyLine: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    lineHeight: 34,
   },
   loginSection: {
     alignItems: 'center',
+    marginTop: 24,
   },
   googleButton: {
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#ffffff',
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 30,
     width: '100%',
-    justifyContent: 'center',
-  },
-  googleIconContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#4285F4',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  googleIcon: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    borderWidth: 2,
+    borderColor: '#1a1acd',
   },
   googleButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333333',
-  },
-  notice: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 16,
+    fontWeight: '700',
+    color: '#1a1acd',
   },
   footer: {
     alignItems: 'center',
+    marginTop: 40,
   },
-  footerText: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
+  footerLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  footerLinkText: {
+    fontSize: 12,
+    color: '#999999',
+  },
+  footerSpacer: {
+    fontSize: 12,
   },
 });
