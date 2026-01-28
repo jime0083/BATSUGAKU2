@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,20 +8,34 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import LottieView from 'lottie-react-native';
+import { router } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { COLORS } from '../../src/constants';
 
 export default function LinkingScreen() {
-  const { user, linkXAccount, linkGitHubAccount, signOut } = useAuth();
+  const { user, linkXAccount, linkGitHubAccount } = useAuth();
   const [xLoading, setXLoading] = useState(false);
   const [githubLoading, setGithubLoading] = useState(false);
 
+  const xLinked = user?.xLinked ?? false;
+  const githubLinked = user?.githubLinked ?? false;
+
+  // 両方連携完了したら自動遷移
+  useEffect(() => {
+    if (xLinked && githubLinked) {
+      const timer = setTimeout(() => {
+        router.replace('/subscription');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [xLinked, githubLinked]);
+
   const handleLinkX = async () => {
+    if (xLinked) return;
     setXLoading(true);
     try {
       await linkXAccount();
     } catch (error) {
-      console.error('X連携エラー:', error);
       Alert.alert('エラー', 'X（Twitter）との連携に失敗しました。もう一度お試しください。');
     } finally {
       setXLoading(false);
@@ -29,127 +43,82 @@ export default function LinkingScreen() {
   };
 
   const handleLinkGitHub = async () => {
+    if (githubLinked) return;
     setGithubLoading(true);
     try {
       await linkGitHubAccount();
     } catch (error) {
-      console.error('GitHub連携エラー:', error);
       Alert.alert('エラー', 'GitHubとの連携に失敗しました。もう一度お試しください。');
     } finally {
       setGithubLoading(false);
     }
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('ログアウトエラー:', error);
-    }
-  };
-
-  const xLinked = user?.xLinked ?? false;
-  const githubLinked = user?.githubLinked ?? false;
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* ヘッダー */}
-        <View style={styles.header}>
-          <Text style={styles.title}>アカウント連携</Text>
-          <Text style={styles.subtitle}>
-            バツガクを利用するには、XとGitHubの{'\n'}アカウント連携が必要です
-          </Text>
+        {/* Lottieアニメーション */}
+        <View style={styles.animationContainer}>
+          <LottieView
+            source={require('../../assets/animations/contact us.json')}
+            autoPlay
+            loop
+            style={styles.animation}
+          />
         </View>
 
-        {/* 説明 */}
-        <View style={styles.descriptionContainer}>
-          <View style={styles.descriptionItem}>
-            <Text style={styles.descriptionIcon}>🐦</Text>
-            <Text style={styles.descriptionText}>
-              サボり投稿・達成投稿の自動投稿に使用します
-            </Text>
-          </View>
-          <View style={styles.descriptionItem}>
-            <Text style={styles.descriptionIcon}>🐙</Text>
-            <Text style={styles.descriptionText}>
-              GitHubへのpush状況を確認するために使用します
-            </Text>
-          </View>
+        {/* タイトル */}
+        <View style={styles.titleSection}>
+          <Text style={styles.titleText}>X・Githubと連携して</Text>
+          <Text style={styles.titleText}>サボりを防止しましょう</Text>
+        </View>
+
+        {/* 説明文 */}
+        <View style={styles.descriptionSection}>
+          <Text style={styles.descriptionText}>サボったらXで自動的に投稿され</Text>
+          <Text style={styles.descriptionText}>サボったことが全フォロワーにバレます</Text>
         </View>
 
         {/* 連携ボタン */}
-        <View style={styles.buttonsContainer}>
+        <View style={styles.buttonsSection}>
           {/* X連携ボタン */}
           <TouchableOpacity
             style={[
-              styles.linkButton,
-              xLinked ? styles.linkedButton : styles.unlinkedButton,
+              styles.outlineButton,
+              xLinked && styles.linkedButton,
             ]}
             onPress={handleLinkX}
             disabled={xLinked || xLoading}
+            activeOpacity={0.8}
           >
             {xLoading ? (
-              <ActivityIndicator size="small" color={COLORS.text} />
+              <ActivityIndicator size="small" color="#1a3fc7" />
             ) : (
-              <>
-                <Text style={styles.buttonIcon}>🐦</Text>
-                <Text style={[styles.linkButtonText, xLinked && styles.linkedText]}>
-                  {xLinked ? 'X連携済み' : 'X（Twitter）と連携する'}
-                </Text>
-                {xLinked && <Text style={styles.checkIcon}>✅</Text>}
-              </>
+              <Text style={[styles.outlineButtonText, xLinked && styles.linkedButtonText]}>
+                {xLinked ? 'X連携済み ✓' : 'Xと連携'}
+              </Text>
             )}
           </TouchableOpacity>
 
           {/* GitHub連携ボタン */}
           <TouchableOpacity
             style={[
-              styles.linkButton,
-              githubLinked ? styles.linkedButton : styles.unlinkedButton,
+              styles.filledButton,
+              githubLinked && styles.linkedButton,
             ]}
             onPress={handleLinkGitHub}
             disabled={githubLinked || githubLoading}
+            activeOpacity={0.8}
           >
             {githubLoading ? (
-              <ActivityIndicator size="small" color={COLORS.text} />
+              <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <>
-                <Text style={styles.buttonIcon}>🐙</Text>
-                <Text style={[styles.linkButtonText, githubLinked && styles.linkedText]}>
-                  {githubLinked
-                    ? `GitHub連携済み（${user?.githubUsername || ''}）`
-                    : 'GitHubと連携する'}
-                </Text>
-                {githubLinked && <Text style={styles.checkIcon}>✅</Text>}
-              </>
+              <Text style={[styles.filledButtonText, githubLinked && styles.linkedButtonText]}>
+                {githubLinked ? 'Github連携済み ✓' : 'Githubと連携'}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
-
-        {/* 連携状態メッセージ */}
-        <View style={styles.statusContainer}>
-          {xLinked && githubLinked ? (
-            <View style={styles.completeMessage}>
-              <Text style={styles.completeIcon}>✅</Text>
-              <Text style={styles.completeText}>連携完了！</Text>
-              <Text style={styles.completeSubtext}>次のステップへ進みます...</Text>
-            </View>
-          ) : (
-            <Text style={styles.statusText}>
-              {!xLinked && !githubLinked
-                ? '両方のアカウントを連携してください'
-                : !xLinked
-                  ? 'Xアカウントを連携してください'
-                  : 'GitHubアカウントを連携してください'}
-            </Text>
-          )}
-        </View>
-
-        {/* ログアウトボタン */}
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>別のアカウントでログインする</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -158,115 +127,74 @@ export default function LinkingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#ffffff',
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 40,
+    paddingHorizontal: 28,
   },
-  header: {
+  animationContainer: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginTop: 30,
+    height: 240,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.text,
+  animation: {
+    width: 280,
+    height: 240,
+  },
+  titleSection: {
+    marginTop: 24,
     marginBottom: 12,
   },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
+  titleText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    lineHeight: 32,
   },
-  descriptionContainer: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
+  descriptionSection: {
     marginBottom: 32,
-  },
-  descriptionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 8,
-    gap: 12,
-  },
-  descriptionIcon: {
-    fontSize: 24,
   },
   descriptionText: {
-    flex: 1,
     fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
+    color: '#999999',
+    lineHeight: 22,
   },
-  buttonsContainer: {
+  buttonsSection: {
     gap: 16,
-    marginBottom: 32,
   },
-  linkButton: {
-    flexDirection: 'row',
+  outlineButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
+    backgroundColor: '#ffffff',
+    paddingVertical: 16,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#1a3fc7',
   },
-  unlinkedButton: {
-    backgroundColor: COLORS.accent,
+  outlineButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a3fc7',
+  },
+  filledButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a3fc7',
+    paddingVertical: 16,
+    borderRadius: 30,
+  },
+  filledButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   linkedButton: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#e8f5e9',
+    borderColor: '#4caf50',
     borderWidth: 2,
-    borderColor: COLORS.success,
   },
-  buttonIcon: {
-    fontSize: 24,
-  },
-  linkButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  linkedText: {
-    color: COLORS.success,
-  },
-  checkIcon: {
-    fontSize: 20,
-  },
-  statusContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  statusText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  completeMessage: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  completeIcon: {
-    fontSize: 32,
-  },
-  completeText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.success,
-  },
-  completeSubtext: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  signOutButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  signOutText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textDecorationLine: 'underline',
+  linkedButtonText: {
+    color: '#4caf50',
   },
 });
