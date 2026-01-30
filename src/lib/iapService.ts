@@ -21,10 +21,14 @@ import { UserSubscription } from '../types';
 // プロダクトID
 export const PRODUCT_IDS = {
   MONTHLY_300: 'batsugaku_monthly_300',
+  YEARLY_3000: 'batsugaku_yearly_3000',
 } as const;
 
 // サブスクリプションSKU（iOS/Android共通）
-const SUBSCRIPTION_SKUS: readonly string[] = [PRODUCT_IDS.MONTHLY_300];
+const SUBSCRIPTION_SKUS: readonly string[] = [
+  PRODUCT_IDS.MONTHLY_300,
+  PRODUCT_IDS.YEARLY_3000,
+];
 
 // IAP接続状態
 let isConnected = false;
@@ -263,8 +267,10 @@ function purchaseToSubscriptionInfo(
     ? new Date(purchase.transactionDate)
     : new Date();
 
-  // 有効期限は購入日から30日後（サーバー側で正確な検証が必要）
-  const expirationDate = new Date(purchaseDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+  // 年額プランは365日、月額プランは30日（サーバー側で正確な検証が必要）
+  const isYearly = purchase.productId === PRODUCT_IDS.YEARLY_3000;
+  const daysToAdd = isYearly ? 365 : 30;
+  const expirationDate = new Date(purchaseDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
 
   return {
     isActive: true,

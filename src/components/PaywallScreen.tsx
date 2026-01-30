@@ -37,10 +37,10 @@ function FeatureItem({ icon, title, description }: FeatureItemProps) {
 }
 
 export function PaywallScreen({ visible, onClose, subscription }: PaywallScreenProps) {
-  const { isLoading, error, purchase, restore, getPrice } = subscription;
+  const { isLoading, error, purchase, restore, getPrice, PRODUCT_IDS } = subscription;
 
   const handlePurchase = async () => {
-    const success = await purchase();
+    const success = await purchase(PRODUCT_IDS.MONTHLY_300);
     if (success) {
       onClose();
     }

@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.batsugaku.app",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
-        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos"
+        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

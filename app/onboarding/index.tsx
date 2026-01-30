@@ -60,7 +60,8 @@ export default function OnboardingScreen() {
         onboardingCompleted: true,
       });
 
-      router.replace('/(main)');
+      // _layoutで自動的にlinking画面に遷移するが、明示的に遷移
+      router.replace('/linking');
     } catch (error) {
       Alert.alert('エラー', '保存に失敗しました');
     } finally {

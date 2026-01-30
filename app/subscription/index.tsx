@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,49 +6,40 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '../../src/constants';
+import LottieView from 'lottie-react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useSubscription } from '../../src/hooks/useSubscription';
 
-interface FeatureItemProps {
-  icon: string;
-  title: string;
-  description: string;
-}
+const PRIVACY_POLICY_URL = 'https://batugaku2-ad498.web.app/privacy-policy.html';
+const TERMS_URL = 'https://batugaku2-ad498.web.app/terms-of-service.html';
 
-function FeatureItem({ icon, title, description }: FeatureItemProps) {
-  return (
-    <View style={styles.featureItem}>
-      <Text style={styles.featureIcon}>{icon}</Text>
-      <View style={styles.featureContent}>
-        <Text style={styles.featureTitle}>{title}</Text>
-        <Text style={styles.featureDescription}>{description}</Text>
-      </View>
-    </View>
-  );
-}
-
-export default function MandatorySubscriptionScreen() {
-  const { user, signOut } = useAuth();
+export default function SubscriptionScreen() {
+  const { user } = useAuth();
   const subscription = useSubscription(user);
-  const { isLoading, error, purchase, restore, getPrice } = subscription;
+  const { isLoading, error, purchase, restore, PRODUCT_IDS } = subscription;
+
+  const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
 
   const handlePurchase = async () => {
-    await purchase();
+    const productId = selectedPlan === 'yearly'
+      ? PRODUCT_IDS.YEARLY_3000
+      : PRODUCT_IDS.MONTHLY_300;
+    await purchase(productId);
   };
 
   const handleRestore = async () => {
     await restore();
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (err) {
-      console.error('ログアウトエラー:', err);
-    }
+  const handleOpenTerms = () => {
+    Linking.openURL(TERMS_URL);
+  };
+
+  const handleOpenPrivacy = () => {
+    Linking.openURL(PRIVACY_POLICY_URL);
   };
 
   return (
@@ -58,54 +49,67 @@ export default function MandatorySubscriptionScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* タイトルセクション */}
-        <View style={styles.titleSection}>
-          <Text style={styles.premiumBadge}>PREMIUM</Text>
-          <Text style={styles.title}>バツガク プレミアム</Text>
-          <Text style={styles.subtitle}>
-            バツガクを利用するには{'\n'}サブスクリプションへの登録が必要です
-          </Text>
+        {/* ヘッダーセクション: タイトル + アニメーション */}
+        <View style={styles.headerSection}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.titleLine}>絶対にサボれない環境で</Text>
+            <Text style={styles.titleLine}>学習習慣を身に付け</Text>
+            <Text style={styles.titleLine}>収入UP!!</Text>
+          </View>
+          <View style={styles.animationContainer}>
+            <LottieView
+              source={require('../../assets/animations/Meta animation.json')}
+              autoPlay
+              loop
+              style={styles.animation}
+            />
+          </View>
         </View>
 
-        {/* 機能一覧 */}
-        <View style={styles.featuresSection}>
-          <FeatureItem
-            icon="📊"
-            title="日次チェック機能"
-            description="毎日のGitHub push状況を自動でチェック"
-          />
-          <FeatureItem
-            icon="🐦"
-            title="自動ツイート投稿"
-            description="サボり時の自動投稿でモチベーション維持"
-          />
-          <FeatureItem
-            icon="🔥"
-            title="ストリーク追跡"
-            description="連続学習日数を記録し達成をお祝い"
-          />
-          <FeatureItem
-            icon="🏆"
-            title="バッジ獲得"
-            description="学習実績に応じたバッジを獲得"
-          />
-          <FeatureItem
-            icon="📈"
-            title="詳細統計"
-            description="月別・累計の学習状況を可視化"
-          />
-          <FeatureItem
-            icon="🔔"
-            title="リマインダー通知"
-            description="学習忘れ防止の通知機能"
-          />
-        </View>
+        {/* プランセクション */}
+        <View style={styles.planSection}>
+          <Text style={styles.planLabel}>プラン</Text>
 
-        {/* 価格セクション */}
-        <View style={styles.priceSection}>
-          <Text style={styles.priceLabel}>月額</Text>
-          <Text style={styles.price}>{getPrice()}</Text>
-          <Text style={styles.priceNote}>いつでもキャンセル可能</Text>
+          {/* 年額プラン */}
+          <TouchableOpacity
+            style={[
+              styles.planCard,
+              selectedPlan === 'yearly' && styles.planCardSelected,
+            ]}
+            onPress={() => setSelectedPlan('yearly')}
+            activeOpacity={0.8}
+          >
+            {/* 割引バッジ */}
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountBadgeText}>16.7% OFF</Text>
+            </View>
+
+            <View style={styles.planCardContent}>
+              <Text style={styles.planDuration}>12ヶ月</Text>
+              <View style={styles.planPriceContainer}>
+                <Text style={styles.planOriginalPrice}>¥3600</Text>
+                <Text style={styles.planPrice}>¥3000</Text>
+                <Text style={styles.planPricePerMonth}>¥250/月</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* 月額プラン */}
+          <TouchableOpacity
+            style={[
+              styles.planCard,
+              selectedPlan === 'monthly' && styles.planCardSelected,
+            ]}
+            onPress={() => setSelectedPlan('monthly')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.planCardContent}>
+              <Text style={styles.planDuration}>1ヶ月</Text>
+              <View style={styles.planPriceContainer}>
+                <Text style={styles.planPriceMonthly}>¥300/月</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* エラー表示 */}
@@ -121,11 +125,12 @@ export default function MandatorySubscriptionScreen() {
             style={[styles.purchaseButton, isLoading && styles.buttonDisabled]}
             onPress={handlePurchase}
             disabled={isLoading}
+            activeOpacity={0.8}
           >
             {isLoading ? (
-              <ActivityIndicator color={COLORS.text} />
+              <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.purchaseButtonText}>プレミアムに登録</Text>
+              <Text style={styles.purchaseButtonText}>登録して学習開始</Text>
             )}
           </TouchableOpacity>
 
@@ -138,28 +143,18 @@ export default function MandatorySubscriptionScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 注意事項 */}
-        <View style={styles.termsSection}>
-          <Text style={styles.termsText}>
-            購入確認時にiTunesアカウントに請求されます。
-            サブスクリプションは現在の期間が終了する24時間前までにキャンセルしない限り、
-            自動的に更新されます。
-          </Text>
-          <View style={styles.termsLinks}>
-            <TouchableOpacity>
-              <Text style={styles.termLink}>利用規約</Text>
+        {/* フッター */}
+        <View style={styles.footer}>
+          <View style={styles.footerLinks}>
+            <TouchableOpacity onPress={handleOpenTerms}>
+              <Text style={styles.footerLinkText}>利用規約</Text>
             </TouchableOpacity>
-            <Text style={styles.termsDivider}>|</Text>
-            <TouchableOpacity>
-              <Text style={styles.termLink}>プライバシーポリシー</Text>
+            <Text style={styles.footerSpacer}>{'    '}</Text>
+            <TouchableOpacity onPress={handleOpenPrivacy}>
+              <Text style={styles.footerLinkText}>プライバシーポリシー</Text>
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* ログアウトボタン */}
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>別のアカウントでログインする</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -168,160 +163,155 @@ export default function MandatorySubscriptionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#ffffff',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 32,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
-  titleSection: {
-    alignItems: 'center',
+  headerSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 32,
   },
-  premiumBadge: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: COLORS.accent,
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  featuresSection: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  featureIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  featureContent: {
+  titleContainer: {
     flex: 1,
   },
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
+  titleLine: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    lineHeight: 28,
   },
-  featureDescription: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
+  animationContainer: {
+    width: 100,
+    height: 80,
   },
-  priceSection: {
-    alignItems: 'center',
+  animation: {
+    width: 100,
+    height: 80,
+  },
+  planSection: {
     marginBottom: 24,
   },
-  priceLabel: {
+  planLabel: {
     fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
+    color: '#666666',
+    marginBottom: 12,
   },
-  price: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: COLORS.accent,
-    marginBottom: 4,
+  planCard: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 12,
+    position: 'relative',
   },
-  priceNote: {
+  planCardSelected: {
+    borderColor: '#1a3fc7',
+    borderWidth: 2,
+  },
+  discountBadge: {
+    position: 'absolute',
+    top: -10,
+    left: 12,
+    backgroundColor: '#00bcd4',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  discountBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  planCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  planDuration: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  planPriceContainer: {
+    alignItems: 'flex-end',
+  },
+  planOriginalPrice: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: '#999999',
+    textDecorationLine: 'line-through',
+  },
+  planPrice: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  planPricePerMonth: {
+    fontSize: 12,
+    color: '#666666',
+  },
+  planPriceMonthly: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a1a1a',
   },
   errorContainer: {
-    backgroundColor: COLORS.error + '20',
+    backgroundColor: '#ffebee',
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
   },
   errorText: {
     fontSize: 14,
-    color: COLORS.error,
+    color: '#d32f2f',
     textAlign: 'center',
   },
   buttonSection: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
   purchaseButton: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 12,
+    backgroundColor: '#4a7aff',
+    borderRadius: 30,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 12,
   },
   purchaseButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   restoreButton: {
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    paddingVertical: 12,
     alignItems: 'center',
+    paddingVertical: 12,
   },
   restoreButtonText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: '#999999',
   },
   buttonDisabled: {
     opacity: 0.6,
   },
-  termsSection: {
+  footer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginTop: 24,
   },
-  termsText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 16,
-    marginBottom: 8,
-  },
-  termsLinks: {
+  footerLinks: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  termLink: {
-    fontSize: 11,
-    color: COLORS.accent,
+  footerLinkText: {
+    fontSize: 12,
+    color: '#999999',
   },
-  termsDivider: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginHorizontal: 8,
-  },
-  signOutButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  signOutText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textDecorationLine: 'underline',
+  footerSpacer: {
+    fontSize: 12,
   },
 });

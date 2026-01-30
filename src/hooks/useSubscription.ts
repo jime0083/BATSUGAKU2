@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   initializeIAP,
   setIAPUserId,
-  getCurrentProduct,
+  getSubscriptionProducts,
   purchaseSubscription,
   restoreIAPPurchases,
   getCurrentSubscriptionInfo,
@@ -22,16 +22,17 @@ export interface SubscriptionState {
   isInitialized: boolean;
   isLoading: boolean;
   isPremium: boolean;
-  currentProduct: IAPProduct | null;
+  products: IAPProduct[];
   error: Error | null;
 }
 
 export interface UseSubscriptionReturn extends SubscriptionState {
-  purchase: () => Promise<boolean>;
+  purchase: (productId: string) => Promise<boolean>;
   restore: () => Promise<boolean>;
   openManagement: () => Promise<void>;
   refresh: () => Promise<void>;
-  getPrice: () => string;
+  getPrice: (productId?: string) => string;
+  PRODUCT_IDS: typeof PRODUCT_IDS;
 }
 
 export function useSubscription(user: User | null): UseSubscriptionReturn {
@@ -39,7 +40,7 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
     isInitialized: false,
     isLoading: true,
     isPremium: false,
-    currentProduct: null,
+    products: [],
     error: null,
   });
 
@@ -71,8 +72,8 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
         await initializeIAP(user.uid);
         setIAPUserId(user.uid);
 
-        // 現在の商品を取得
-        const product = await getCurrentProduct();
+        // 全ての商品を取得
+        const products = await getSubscriptionProducts();
 
         // プレミアム状態を確認
         const premium = await isPremiumActive();
@@ -81,7 +82,7 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
           isInitialized: true,
           isLoading: false,
           isPremium: premium || hasPremiumAccess(user),
-          currentProduct: product,
+          products,
           error: null,
         });
       } catch (error) {
@@ -139,9 +140,7 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
   }, [user]);
 
   // 購入
-  const purchase = useCallback(async (): Promise<boolean> => {
-    const productId = state.currentProduct?.productId || PRODUCT_IDS.MONTHLY_300;
-
+  const purchase = useCallback(async (productId: string): Promise<boolean> => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
@@ -176,7 +175,7 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
       }));
       return false;
     }
-  }, [state.currentProduct, user]);
+  }, [user]);
 
   // 復元
   const restore = useCallback(async (): Promise<boolean> => {
@@ -230,12 +229,19 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
   }, []);
 
   // 価格を取得
-  const getPrice = useCallback((): string => {
-    if (state.currentProduct) {
-      return formatPrice(state.currentProduct);
+  const getPrice = useCallback((productId?: string): string => {
+    if (productId) {
+      const product = state.products.find(p => p.productId === productId);
+      if (product) {
+        return formatPrice(product);
+      }
     }
-    return '¥300/月';
-  }, [state.currentProduct]);
+    // デフォルト価格
+    if (productId === PRODUCT_IDS.YEARLY_3000) {
+      return '¥3,000';
+    }
+    return '¥300';
+  }, [state.products]);
 
   return {
     ...state,
@@ -244,5 +250,6 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
     openManagement,
     refresh,
     getPrice,
+    PRODUCT_IDS,
   };
 }

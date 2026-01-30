@@ -45,22 +45,22 @@ function RootLayoutNav() {
           name="(auth)"
           options={{ headerShown: false }}
         />
+      ) : !user.onboardingCompleted ? (
+        // 2. ログイン済みだが目標設定未完了 → オンボーディング
+        <Stack.Screen
+          name="onboarding"
+          options={{ headerShown: false }}
+        />
       ) : !isLinked ? (
-        // 2. ログイン済みだがX/GitHub未連携 → 連携画面
+        // 3. 目標設定済みだがX/GitHub未連携 → 連携画面
         <Stack.Screen
           name="linking"
           options={{ headerShown: false }}
         />
       ) : !isPremium ? (
-        // 3. 連携済みだがサブスク未加入 → サブスク画面（必須）
+        // 4. 連携済みだがサブスク未加入 → サブスク画面（必須）
         <Stack.Screen
           name="subscription"
-          options={{ headerShown: false }}
-        />
-      ) : !user.onboardingCompleted ? (
-        // 4. サブスク加入済みだがオンボーディング未完了 → オンボーディング
-        <Stack.Screen
-          name="onboarding"
           options={{ headerShown: false }}
         />
       ) : (
