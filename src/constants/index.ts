@@ -48,6 +48,10 @@ export const BADGES = {
 
 // ツイートテンプレート
 export const TWEET_TEMPLATES = {
+  // 初回目標宣言投稿
+  goalAnnouncement: (deadline: string, skill: string, incomeType: string, targetIncome: number) =>
+    `私は「${deadline}」までに「${skill}」で「${incomeType === 'monthly' ? '月収' : '年収'}」「${targetIncome}」万円稼げる様毎日サボらず努力します🔥\n${HASHTAG}`,
+
   // サボり投稿
   skip: (targetIncome: number, incomeType: string, skills: string[], monthCount: number, totalCount: number) =>
     `私は${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万稼ぐエンジニアになるため${skills.join('、')}の学習をすると宣言したにも関わらず、学習をサボった愚かな人間です\n#今月${monthCount}回目 #累計${totalCount}回 ${HASHTAG}`,

@@ -61,6 +61,7 @@ const createMockUser = (overrides: Partial<User> = {}): User => ({
   fcmToken: null,
   notificationsEnabled: true,
   onboardingCompleted: false,
+    goalTweetPosted: false,
   isAdmin: false,
   subscription: null,
   ...overrides,

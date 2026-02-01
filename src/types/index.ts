@@ -35,6 +35,9 @@ export interface User {
   // 初回設定完了フラグ
   onboardingCompleted: boolean;
 
+  // 初回目標投稿済みフラグ
+  goalTweetPosted: boolean;
+
   // 管理者フラグ（サブスクバイパス用）
   isAdmin: boolean;
 

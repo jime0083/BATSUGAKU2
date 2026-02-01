@@ -1,12 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useDashboardData } from '../../src/hooks/useDashboardData';
 import { useSubscription } from '../../src/hooks/useSubscription';
 import { DailyCheckButton, DailyCheckResultModal, PaywallScreen } from '../../src/components';
 import { DailyCheckResultDisplay } from '../../src/hooks/useDailyCheck';
 import { COLORS } from '../../src/constants';
+import { shouldPostGoalTweet, postGoalTweet } from '../../src/lib/goalTweetService';
 
 export default function DashboardScreen() {
   const { user } = useAuth();
@@ -16,6 +17,32 @@ export default function DashboardScreen() {
   const [showResultModal, setShowResultModal] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [checkResult, setCheckResult] = useState<DailyCheckResultDisplay | null>(null);
+  const goalTweetAttempted = useRef(false);
+
+  // 初回目標投稿（サブスク完了後に自動実行）
+  useEffect(() => {
+    const postInitialGoalTweet = async () => {
+      if (!user || goalTweetAttempted.current) {
+        return;
+      }
+
+      if (shouldPostGoalTweet(user)) {
+        goalTweetAttempted.current = true;
+        const result = await postGoalTweet(user);
+
+        if (result.success) {
+          Alert.alert(
+            '目標を宣言しました！',
+            'Xに目標宣言ツイートを投稿しました。毎日サボらず頑張りましょう！'
+          );
+        } else if (result.error) {
+          Alert.alert('投稿エラー', result.error);
+        }
+      }
+    };
+
+    postInitialGoalTweet();
+  }, [user]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

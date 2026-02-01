@@ -269,6 +269,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       fcmToken: null,
       notificationsEnabled: true,
       onboardingCompleted: false,
+      goalTweetPosted: false,
       isAdmin: false,
       subscription: null,
     };
