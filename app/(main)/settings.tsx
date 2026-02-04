@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import { router } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { COLORS } from '../../src/constants';
 import { useSubscription } from '../../src/hooks/useSubscription';
@@ -141,7 +142,10 @@ export default function SettingsScreen() {
             ) : (
               <Text style={styles.notSetText}>目標が設定されていません</Text>
             )}
-            <TouchableOpacity style={styles.editButton}>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => router.push('/(main)/goal-edit')}
+            >
               <Text style={styles.editButtonText}>目標を編集</Text>
             </TouchableOpacity>
           </View>
@@ -244,6 +248,14 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               )}
             </View>
+            {subscription.isPremium && (
+              <TouchableOpacity
+                style={styles.cancelSubscriptionButton}
+                onPress={() => router.push('/(main)/subscription-cancel')}
+              >
+                <Text style={styles.cancelSubscriptionButtonText}>解約について</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -491,6 +503,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: COLORS.textSecondary,
+  },
+  cancelSubscriptionButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  cancelSubscriptionButtonText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textDecorationLine: 'underline',
   },
   dangerButton: {
     backgroundColor: COLORS.error,

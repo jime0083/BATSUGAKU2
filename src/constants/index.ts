@@ -20,6 +20,12 @@ export const COLORS = {
 // 連続日数のマイルストーン（ツイート対象）
 export const STREAK_MILESTONES = [5, 10, 15, 20, 25, 30, 50, 100, 200, 365] as const;
 
+// 達成ツイート用マイルストーン
+// 通算日数: 5日, 10日, 以降10日ごと
+export const TOTAL_DAYS_ACHIEVEMENT_MILESTONES = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300, 365] as const;
+// 連続日数: 3日, 5日, 以降5日ごと
+export const STREAK_ACHIEVEMENT_MILESTONES = [3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 100, 150, 200, 365] as const;
+
 // バッジ定義
 export const BADGES = {
   // 連続学習日数バッジ
@@ -63,6 +69,14 @@ export const TWEET_TEMPLATES = {
   // 管理者日次統計投稿
   dailyStats: (studyCount: number, skipCount: number) =>
     `今日学習をした人：${studyCount}人、サボった人：${skipCount}人 ${HASHTAG}`,
+
+  // 通算日数達成投稿
+  totalDaysAchievement: (deadline: string, skill: string, incomeType: string, targetIncome: number, totalDays: number) =>
+    `${deadline}までに「${skill}」で${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万円稼ぐという目標を設定してから通算${totalDays}日作業しました目標を達成するため日々がんばっています🔥\n${HASHTAG}`,
+
+  // 連続日数達成投稿
+  streakAchievement: (deadline: string, skill: string, incomeType: string, targetIncome: number, streakDays: number) =>
+    `${deadline}までに「${skill}」で${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万円稼ぐという目標を設定してから${streakDays}日連続で作業しました目標を達成するため日々がんばっています🔥\n${HASHTAG}`,
 } as const;
 
 // 通知メッセージ

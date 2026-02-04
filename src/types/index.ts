@@ -38,6 +38,10 @@ export interface User {
   // 初回目標投稿済みフラグ
   goalTweetPosted: boolean;
 
+  // 達成ツイート投稿済みマイルストーン
+  postedTotalDaysMilestones: number[];  // 投稿済みの通算日数マイルストーン
+  postedStreakMilestones: number[];     // 投稿済みの連続日数マイルストーン
+
   // 管理者フラグ（サブスクバイパス用）
   isAdmin: boolean;
 

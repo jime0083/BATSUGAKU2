@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -8,6 +9,35 @@ const TERMS_URL = 'https://batugaku2-ad498.web.app/terms-of-service.html';
 
 export default function LoginScreen() {
   const { signInWithGoogle } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (isLoading) return;
+
+    setIsLoading(true);
+    try {
+      console.log('=== Login Button Pressed ===');
+      await signInWithGoogle();
+      console.log('=== signInWithGoogle completed successfully ===');
+      // ログイン成功時は_layout.tsxが自動的に次の画面に遷移させる
+    } catch (error: any) {
+      console.error('=== Login Error Caught ===');
+      console.error('Error:', error);
+
+      const errorMessage = error instanceof Error ? error.message : 'ログインに失敗しました';
+      console.error('Error message to display:', errorMessage);
+
+      // キャンセルの場合はアラートを表示しない
+      if (!errorMessage.includes('キャンセル')) {
+        Alert.alert(
+          'ログインエラー',
+          `${errorMessage}\n\n(Xcodeのコンソールで詳細なログを確認してください)`
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleOpenTerms = () => {
     Linking.openURL(TERMS_URL);
@@ -40,11 +70,19 @@ export default function LoginScreen() {
         {/* ログインボタン */}
         <View style={styles.loginSection}>
           <TouchableOpacity
-            style={styles.googleButton}
-            onPress={signInWithGoogle}
+            style={[styles.googleButton, isLoading && styles.googleButtonDisabled]}
+            onPress={handleLogin}
             activeOpacity={0.8}
+            disabled={isLoading}
           >
-            <Text style={styles.googleButtonText}>Googleアカウントでログイン</Text>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#1a1acd" />
+                <Text style={styles.googleButtonText}>ログイン中...</Text>
+              </View>
+            ) : (
+              <Text style={styles.googleButtonText}>Googleアカウントでログイン</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -109,10 +147,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#1a1acd',
   },
+  googleButtonDisabled: {
+    opacity: 0.7,
+  },
   googleButtonText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#1a1acd',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   footer: {
     alignItems: 'center',

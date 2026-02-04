@@ -7,7 +7,11 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import * as Google from 'expo-auth-session/providers/google';
+import {
+  GoogleSignin,
+  statusCodes,
+  isErrorWithCode,
+} from '@react-native-google-signin/google-signin';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { auth, db } from '../lib/firebase';
@@ -15,10 +19,15 @@ import { User, AuthContextType } from '../types';
 import { fetchGitHubUser } from '../lib/github';
 import { fetchXUser } from '../lib/twitter';
 import { Timestamp } from 'firebase/firestore';
-import Constants from 'expo-constants';
 
 // WebBrowserの結果を完了させる
 WebBrowser.maybeCompleteAuthSession();
+
+// Google Sign-Inの設定
+GoogleSignin.configure({
+  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+});
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -30,17 +39,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Google OAuth設定
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: Constants.expoConfig?.extra?.googleClientId || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-    iosClientId: Constants.expoConfig?.extra?.googleIosClientId || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: Constants.expoConfig?.extra?.googleAndroidClientId || process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    webClientId: Constants.expoConfig?.extra?.googleWebClientId || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  });
-
   // GitHub OAuth設定
-  const githubClientId = Constants.expoConfig?.extra?.githubClientId || process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID || '';
-  const githubClientSecret = Constants.expoConfig?.extra?.githubClientSecret || process.env.EXPO_PUBLIC_GITHUB_CLIENT_SECRET || '';
+  const githubClientId = process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID || '';
+  const githubClientSecret = process.env.EXPO_PUBLIC_GITHUB_CLIENT_SECRET || '';
 
   const githubDiscovery = {
     authorizationEndpoint: 'https://github.com/login/oauth/authorize',
@@ -61,7 +62,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 
   // X (Twitter) OAuth 2.0 PKCE設定
-  const xClientId = Constants.expoConfig?.extra?.xClientId || process.env.EXPO_PUBLIC_X_CLIENT_ID || '';
+  const xClientId = process.env.EXPO_PUBLIC_X_CLIENT_ID || '';
 
   const xDiscovery = {
     authorizationEndpoint: 'https://twitter.com/i/oauth2/authorize',
@@ -84,30 +85,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Firebase Auth状態の監視
   useEffect(() => {
+    console.log('=== Setting up onAuthStateChanged listener ===');
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('=== onAuthStateChanged triggered ===');
+      console.log('Firebase user:', firebaseUser ? firebaseUser.uid : 'null');
+
       if (firebaseUser) {
-        // Firestoreからユーザーデータを取得
-        const userData = await fetchUserData(firebaseUser);
-        setUser(userData);
+        try {
+          // Firestoreからユーザーデータを取得
+          console.log('Fetching user data from Firestore...');
+          const userData = await fetchUserData(firebaseUser);
+          console.log('User data fetched:', JSON.stringify(userData, null, 2));
+          console.log('Setting user state...');
+          setUser(userData);
+          console.log('User state set successfully');
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setUser(null);
+        }
       } else {
+        console.log('No Firebase user, setting user to null');
         setUser(null);
       }
+      console.log('Setting loading to false');
       setLoading(false);
     });
 
     return unsubscribe;
   }, []);
-
-  // Google認証レスポンスの処理
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      signInWithCredential(auth, credential).catch((error) => {
-        console.error('Google sign in error:', error);
-      });
-    }
-  }, [response]);
 
   // GitHub認証レスポンスの処理
   useEffect(() => {
@@ -270,6 +275,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       notificationsEnabled: true,
       onboardingCompleted: false,
       goalTweetPosted: false,
+      postedTotalDaysMilestones: [],
+      postedStreakMilestones: [],
       isAdmin: false,
       subscription: null,
     };
@@ -281,16 +288,68 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Googleログイン
   const signInWithGoogle = async () => {
     try {
-      await promptAsync();
-    } catch (error) {
-      console.error('Google sign in error:', error);
-      throw error;
+      console.log('=== Google Sign-In Start ===');
+      console.log('iOS Client ID:', process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID);
+      console.log('Web Client ID:', process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID);
+
+      // Googleサインイン
+      console.log('Calling GoogleSignin.signIn()...');
+      const signInResult = await GoogleSignin.signIn();
+      console.log('Google Sign-In result:', JSON.stringify(signInResult, null, 2));
+
+      // IDトークンを取得
+      const idToken = signInResult.data?.idToken;
+      if (!idToken) {
+        console.error('No ID token in result:', signInResult);
+        throw new Error('IDトークンが取得できませんでした');
+      }
+
+      console.log('Got ID token (first 50 chars):', idToken.substring(0, 50) + '...');
+
+      // Firebase認証情報を作成
+      console.log('Creating Firebase credential...');
+      const credential = GoogleAuthProvider.credential(idToken);
+
+      // Firebaseでサインイン
+      console.log('Signing in to Firebase...');
+      const firebaseResult = await signInWithCredential(auth, credential);
+      console.log('=== Firebase sign-in successful ===');
+      console.log('User UID:', firebaseResult.user.uid);
+      console.log('User Email:', firebaseResult.user.email);
+    } catch (error: any) {
+      console.error('=== Google Sign-In Error ===');
+      console.error('Error type:', typeof error);
+      console.error('Error name:', error?.name);
+      console.error('Error code:', error?.code);
+      console.error('Error message:', error?.message);
+      console.error('Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+
+      if (isErrorWithCode(error)) {
+        console.error('Error has code:', error.code);
+        switch (error.code) {
+          case statusCodes.SIGN_IN_CANCELLED:
+            throw new Error('ログインがキャンセルされました');
+          case statusCodes.IN_PROGRESS:
+            throw new Error('ログイン処理中です');
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            throw new Error('Google Play Servicesが利用できません');
+          default:
+            throw new Error(`ログインエラー: ${error.message || error.code}`);
+        }
+      }
+
+      // Firebaseエラーの場合
+      const errorMessage = error instanceof Error ? error.message : 'ログインに失敗しました';
+      console.error('Throwing error with message:', errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
   // ログアウト
   const signOut = async () => {
     try {
+      // Googleからもサインアウト
+      await GoogleSignin.signOut();
       await firebaseSignOut(auth);
       setUser(null);
     } catch (error) {

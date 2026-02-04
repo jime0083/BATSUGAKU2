@@ -2,7 +2,7 @@
 BATSUGAKU (バツガク) - 実装進捗管理
 ================================================================================
 
-最終更新: 2026-01-31
+最終更新: 2026-02-03
 設定: Everything Claude Code (cogsec) 使用
 
 ================================================================================
@@ -274,25 +274,138 @@ BATSUGAKU (バツガク) - 実装進捗管理
     - [x] 11.4.5 テスト作成                            完了: 2026-01-31
           - goalTweetService.test.ts（16件）
 
-■ Phase 12: App Store提出
+■ Phase 12: 実機テスト環境構築・Googleログイン修正
 --------------------------------------------------------------------------------
-[ ] 12.1 本番ビルド作成
+【目標】
+- XcodeでビルドしてiPhoneで実機テストができる
+- インストール後はMac接続不要・サーバー不要で動作（リリースと同条件）
+- Googleアカウントでのログインが正常に動作
+
+[x] 12.1 Preview Build環境構築（サーバー不要ビルド）           完了: 2026-02-02
+    - [x] 12.1.1 eas.jsonのpreviewプロファイル確認・修正       完了: 2026-02-02
+          ※ 確認の結果、既に正しく設定済み
+    - [-] 12.1.2 環境変数の本番設定（EAS Secrets）             スキップ
+          ※ Xcodeローカルビルドに切り替えたため不要
+    - [-] 12.1.3 Preview Buildの作成（eas build --profile preview） スキップ
+          ※ Xcodeローカルビルドに切り替え
+    - [-] 12.1.4 実機へのインストール確認                      スキップ
+          ※ Xcodeローカルビルドに切り替え
+
+[x] 12.2 Google OAuth設定修正                                  完了: 2026-02-02
+    - [x] 12.2.1 Google Cloud ConsoleでiOS OAuth設定確認       完了: 2026-02-02
+          - バンドルID: com.batsugaku.app で作成済み
+          - クライアントID: 518497599552-0k7tnkmrg14h0ulbjsfgurvkmcnu0cf
+    - [ ] 12.2.2 Firebase AuthenticationのGoogle設定確認       未確認
+    - [x] 12.2.3 @react-native-google-signin設定確認           完了: 2026-02-02
+          - パッケージインストール済み
+          - AuthContext.tsx更新済み（GoogleSignin.configure）
+          - iosClientId, webClientId設定済み
+    - [x] 12.2.4 app.jsonプラグイン設定確認                    完了: 2026-02-02
+          - iosUrlScheme設定済み
+
+[ ] 12.3 Xcodeローカルビルド対応                               進行中
+    - [x] 12.3.1 npx expo prebuild実行（ネイティブプロジェクト生成）完了: 2026-02-02
+    - [x] 12.3.2 Xcodeプロジェクト設定確認                     完了: 2026-02-02
+          - URL Types確認済み（Google OAuth用URLスキーム設定済み）
+          - Bundle Identifier: com.batsugaku.app
+    - [ ] 12.3.3 Xcodeからのビルド・実機インストール           待機中
+          ※ ユーザーによるXcode操作待ち
+    - [ ] 12.3.4 Releaseビルドでの動作確認                     未実施
+
+[ ] 12.4 Googleログイン動作確認
+    - [ ] 12.4.1 ログイン画面表示確認
+    - [ ] 12.4.2 Googleログインボタンタップ
+    - [ ] 12.4.3 Google認証画面表示確認
+    - [ ] 12.4.4 認証完了・リダイレクト確認
+    - [ ] 12.4.5 Firebase認証成功確認
+    - [ ] 12.4.6 アプリ内ユーザー情報表示確認
+
+[ ] 12.5 全体動作確認
+    - [ ] 12.5.1 ログイン→X/GitHub連携画面遷移
+    - [ ] 12.5.2 サブスク画面表示
+    - [ ] 12.5.3 メイン画面表示
+    - [ ] 12.5.4 オフライン起動確認（サーバー不要）
+
+[ ] 12.6 Google Sign-In詳細修正（401 invalid_client対応）
+    【原因】
+    - ネイティブGoogle Sign-InがWebビュー認証にフォールバックしている
+    - GoogleService-Info.plistが不足している可能性
+    - Firebase AuthenticationでGoogle Sign-Inが未設定の可能性
+
+    - [ ] 12.6.1 GoogleService-Info.plistの追加（手動作業）
+          1. Firebase Console → プロジェクト設定 → iOSアプリ追加
+          2. バンドルID: com.batsugaku.app で登録
+          3. GoogleService-Info.plistをダウンロード
+          4. ios/app/フォルダに配置
+          5. Xcodeでプロジェクトに追加
+    - [ ] 12.6.2 Firebase AuthenticationでGoogle有効化（手動作業）
+          1. Firebase Console → Authentication → Sign-in method
+          2. Googleプロバイダを有効化
+          3. Web Client IDが設定されていることを確認
+    - [ ] 12.6.3 app.jsonにGoogleService-Info.plist参照追加
+    - [ ] 12.6.4 prebuildの再実行
+    - [ ] 12.6.5 Xcodeで再ビルド・テスト
+    - [ ] 12.6.6 Googleログイン動作確認
+
+■ Phase 13: App Store提出
+--------------------------------------------------------------------------------
+[ ] 13.1 本番ビルド作成
     - [ ] eas build --platform ios --profile production
     - [ ] APNs資格情報設定（ビルド時に自動）
-[ ] 12.2 App Store提出
+[ ] 13.2 App Store提出
     - [ ] App Store Connectでビルドアップロード
     - [ ] メタデータ入力（説明文、キーワード、スクリーンショット）
     - [ ] プライバシーポリシーURL設定
     - [ ] 審査提出
 
+■ Phase 14: 追加機能
+--------------------------------------------------------------------------------
+[x] 14.1 達成ツイート機能（通算日数・連続日数）           完了: 2026-02-03
+    【仕様】
+    - 通算日数: 5日, 10日, 以降10日ごと
+    - 連続日数: 3日, 5日, 以降5日ごと
+
+    【ツイートフォーマット】
+    通算: 「◯月◯日までに「スキル」で年収(月収)◯◯円稼ぐという目標を設定してから通算◯日作業しました目標を達成するため日々がんばっています🔥#バツガク」
+    連続: 「◯月◯日までに「スキル」で年収(月収)◯◯円稼ぐという目標を設定してから◯日連続で作業しました目標を達成するため日々がんばっています🔥#バツガク」
+
+    - [x] 14.1.1 TWEET_TEMPLATESに達成ツイートテンプレート追加  完了: 2026-02-03
+    - [x] 14.1.2 achievementTweetService.ts作成               完了: 2026-02-03
+          - checkTotalDaysAchievement() - 通算日数達成判定
+          - checkStreakAchievement() - 連続日数達成判定
+          - shouldPostTotalDaysAchievement() - 投稿判定
+          - shouldPostStreakAchievement() - 投稿判定
+          - generateTotalDaysAchievementText() - 通算日数ツイート生成
+          - generateStreakAchievementText() - 連続日数ツイート生成
+          - postTotalDaysAchievementTweet() - 通算日数ツイート投稿
+          - postStreakAchievementTweet() - 連続日数ツイート投稿
+          - postAchievementTweetsAfterDailyCheck() - 日次チェック後一括投稿
+    - [x] 14.1.3 User型に投稿済みマイルストーン記録追加     完了: 2026-02-03
+          - postedTotalDaysMilestones: number[]
+          - postedStreakMilestones: number[]
+    - [x] 14.1.4 Firestore連携（投稿済みマイルストーン記録） 完了: 2026-02-03
+    - [x] 14.1.5 テスト作成（29件）                          完了: 2026-02-03
+
+[x] 14.2 目標変更画面                                    完了: 2026-02-04
+    - [x] 14.2.1 app/(main)/goal-edit.tsx作成             完了: 2026-02-04
+    - [x] 14.2.2 目標編集フォーム（期限、スキル、収入目標） 完了: 2026-02-04
+    - [x] 14.2.3 Firestore更新処理                        完了: 2026-02-04
+    - [x] 14.2.4 設定画面からの導線追加                    完了: 2026-02-04
+
+[x] 14.3 サブスク解約画面                                  完了: 2026-02-04
+    - [x] 14.3.1 app/(main)/subscription-cancel.tsx作成    完了: 2026-02-04
+    - [x] 14.3.2 解約確認UI                                完了: 2026-02-04
+    - [x] 14.3.3 App Store/Google Play解約導線             完了: 2026-02-04
+    - [x] 14.3.4 設定画面からの導線追加                     完了: 2026-02-04
+
 ================================================================================
 テスト実行結果
 ================================================================================
 
-最新実行: 2026-01-31
+最新実行: 2026-02-04
 
-Test Suites: 15 passed, 15 total
-Tests:       187 passed, 187 total
+Test Suites: 16 passed, 16 total
+Tests:       216 passed, 216 total
 
 内訳:
 - github.test.ts:              7 passed
@@ -387,21 +500,29 @@ TypeScript型チェック: エラーなし
 - app/subscription/index.tsx          サブスク必須画面
 - app/subscription/_layout.tsx        サブスク画面レイアウト
 
+【Phase 14: 追加機能】
+- src/lib/achievementTweetService.ts  達成ツイートサービス
+- src/__tests__/lib/achievementTweetService.test.ts  達成ツイートテスト（29件）
+- app/(main)/goal-edit.tsx            目標変更画面
+- app/(main)/subscription-cancel.tsx  サブスク解約画面
+
 ================================================================================
 次の作業
 ================================================================================
 
 推奨順序:
-1. Phase 11.2.4: アイコン・画像アセット作成 ← 次はここ
-2. Phase 11.2.5-11.2.9: デザイン・UX改善
-3. Phase 11.3: バグ修正
-4. Phase 10.3: E2Eテスト
-5. Phase 12: App Store提出
+1. Phase 12: 実機テスト（Googleログイン確認待ち）
+2. Phase 11.2.4: アイコン・画像アセット作成
+3. Phase 13: App Store提出
 
 完了済み:
 - Phase 11.2.2: 初回起動時X/GitHub連携画面表示
 - Phase 11.2.3: サブスク必須化（連携後に表示）
 - Phase 11.4: 初回目標投稿機能
+- Phase 12.6: CLIENT_ID修正（実機テスト待ち）
+- Phase 14.1: 達成ツイート機能（通算日数・連続日数）
+- Phase 14.2: 目標変更画面
+- Phase 14.3: サブスク解約画面
 
 ※ 外部作業（manual-work.txt）は完了済み
 ※ レガシーコード削除（任意）:

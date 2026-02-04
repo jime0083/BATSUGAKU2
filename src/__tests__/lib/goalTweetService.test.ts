@@ -60,6 +60,8 @@ describe('goalTweetService', () => {
     notificationsEnabled: true,
     onboardingCompleted: true,
     goalTweetPosted: false,
+    postedTotalDaysMilestones: [],
+    postedStreakMilestones: [],
     isAdmin: false,
     subscription: {
       isActive: true,

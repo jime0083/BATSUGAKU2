@@ -161,6 +161,53 @@ Batsugaku（罰学）は、プログラマー向けの「罰ゲーム学習」�
 - TDD（テスト駆動開発）推奨
 - Unit / Integration / E2E テスト
 
+## 重要: iOS実機テストのビルド手順
+
+**「No development servers found」画面が表示される問題を防ぐため、必ずRelease設定でビルドすること**
+
+### 問題の原因
+- **Debug設定**でビルドすると、expo-dev-clientが含まれる
+- expo-dev-clientは開発サーバーへの接続を要求する
+- 結果として「No development servers found」画面が表示される
+
+### 正しいビルド手順
+
+1. **prebuildを実行**
+   ```bash
+   npx expo prebuild --platform ios --clean
+   ```
+
+2. **Xcodeでワークスペースを開く**
+   ```bash
+   open ios/batsugaku.xcworkspace
+   ```
+
+3. **ビルド設定をReleaseに変更**（重要！）
+   - Xcode上部メニュー: Product → Scheme → Edit Scheme
+   - 左側で「Run」を選択
+   - 「Build Configuration」を **Release** に変更
+   - Closeをクリック
+
+4. **署名設定**
+   - 左側のプロジェクトナビゲータで「batsugaku」を選択
+   - 「Signing & Capabilities」タブを選択
+   - 「Team」でApple Developer アカウントを選択
+   - 「Automatically manage signing」にチェック
+
+5. **実機を選択してビルド**
+   - 上部のデバイス選択で接続中のiPhoneを選択
+   - Product → Run (または Cmd+R)
+
+### チェックリスト
+- [ ] Build Configuration が **Release** になっている
+- [ ] Team が設定されている
+- [ ] 実機が選択されている（シミュレータではない）
+
+### 注意事項
+- prebuild後は毎回Signing設定が必要
+- Debug設定では絶対にビルドしない
+- 「Development Build」という表示が出たら設定ミス
+
 ## 環境変数
 
 ```
