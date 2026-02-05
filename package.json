@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/datetimepicker": "^8.6.0",
     "@react-native-google-signin/google-signin": "^16.1.1",
     "expo": "~54.0.31",
     "expo-auth-session": "~7.0.10",
@@ -35,6 +36,7 @@
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-iap": "^12.15.6",
+    "react-native-modal-datetime-picker": "^18.0.0",
     "react-native-purchases": "^9.7.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0"

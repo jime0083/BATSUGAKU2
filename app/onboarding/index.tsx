@@ -11,27 +11,49 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import LottieView from 'lottie-react-native';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { db } from '../../src/lib/firebase';
 import { useAuth } from '../../src/contexts/AuthContext';
 
 export default function OnboardingScreen() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [loading, setLoading] = useState(false);
 
   // フォーム状態
-  const [deadline, setDeadline] = useState('');
+  const [deadlineDate, setDeadlineDate] = useState<Date>(() => {
+    // デフォルトは1年後
+    const date = new Date();
+    date.setFullYear(date.getFullYear() + 1);
+    return date;
+  });
+  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   const [skill, setSkill] = useState('');
   const [incomeType, setIncomeType] = useState<'monthly' | 'yearly'>('monthly');
   const [targetIncome, setTargetIncome] = useState('');
 
+  // 日付を「YYYY年MM月」形式で表示
+  const formatDateDisplay = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    return `${year}年${month}月`;
+  };
+
+  const showDatePicker = () => {
+    setDatePickerVisible(true);
+  };
+
+  const hideDatePicker = () => {
+    setDatePickerVisible(false);
+  };
+
+  const handleConfirm = (date: Date) => {
+    setDeadlineDate(date);
+    hideDatePicker();
+  };
+
   const handleSubmit = async () => {
-    if (!deadline.trim()) {
-      Alert.alert('エラー', '目標期限を入力してください');
-      return;
-    }
     if (!skill.trim()) {
       Alert.alert('エラー', 'スキルを入力してください');
       return;
@@ -44,24 +66,25 @@ export default function OnboardingScreen() {
 
     setLoading(true);
     try {
-      // deadline を YYYY.MM 形式からDateに変換
-      const parts = deadline.split('.');
-      const year = Number(parts[0]);
-      const month = parts[1] ? Number(parts[1]) - 1 : 0;
-      const deadlineDate = new Date(year, month);
+      const goalData = {
+        deadline: Timestamp.fromDate(deadlineDate),
+        skills: [skill.trim()],
+        targetIncome: Number(targetIncome),
+        incomeType,
+      };
 
       await updateDoc(doc(db, 'users', user.uid), {
-        goal: {
-          deadline: Timestamp.fromDate(deadlineDate),
-          skills: [skill.trim()],
-          targetIncome: Number(targetIncome),
-          incomeType,
-        },
+        goal: goalData,
         onboardingCompleted: true,
       });
 
-      // _layoutで自動的にlinking画面に遷移するが、明示的に遷移
-      router.replace('/linking');
+      // ローカル状態を更新（これにより_layoutのナビゲーションが正しく動作する）
+      updateUser({
+        goal: goalData as any,
+        onboardingCompleted: true,
+      });
+
+      // _layoutで自動的にlinking画面に遷移する
     } catch (error) {
       Alert.alert('エラー', '保存に失敗しました');
     } finally {
@@ -72,6 +95,12 @@ export default function OnboardingScreen() {
   const toggleIncomeType = () => {
     setIncomeType((prev) => (prev === 'monthly' ? 'yearly' : 'monthly'));
   };
+
+  // 最小日付は今日
+  const minDate = new Date();
+  // 最大日付は10年後
+  const maxDate = new Date();
+  maxDate.setFullYear(maxDate.getFullYear() + 10);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,18 +133,15 @@ export default function OnboardingScreen() {
 
           {/* フォーム: 文章形式 */}
           <View style={styles.formSection}>
-            {/* 行1: [YYYY.MM] までに */}
+            {/* 行1: [YYYY年MM月] までに */}
             <View style={styles.formRow}>
-              <View style={styles.dateInputWrapper}>
-                <TextInput
-                  style={styles.dateInput}
-                  value={deadline}
-                  onChangeText={setDeadline}
-                  placeholder="2026.12"
-                  placeholderTextColor="#bbb"
-                  keyboardType="numeric"
-                />
-              </View>
+              <TouchableOpacity
+                style={styles.dateInputWrapper}
+                onPress={showDatePicker}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.dateText}>{formatDateDisplay(deadlineDate)}</Text>
+              </TouchableOpacity>
               <Text style={styles.formLabel}>までに</Text>
             </View>
 
@@ -172,6 +198,20 @@ export default function OnboardingScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* 日付ピッカーモーダル */}
+      <DateTimePickerModal
+        isVisible={isDatePickerVisible}
+        mode="date"
+        onConfirm={handleConfirm}
+        onCancel={hideDatePicker}
+        date={deadlineDate}
+        minimumDate={minDate}
+        maximumDate={maxDate}
+        confirmTextIOS="完了"
+        cancelTextIOS="キャンセル"
+        locale="ja"
+      />
     </SafeAreaView>
   );
 }
@@ -225,13 +265,13 @@ const styles = StyleSheet.create({
     borderColor: '#cccccc',
     borderRadius: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     marginRight: 10,
+    backgroundColor: '#f9f9f9',
   },
-  dateInput: {
+  dateText: {
     fontSize: 15,
     color: '#1a1a1a',
-    minWidth: 70,
   },
   skillInputWrapper: {
     flex: 1,

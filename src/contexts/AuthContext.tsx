@@ -49,14 +49,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     revocationEndpoint: `https://github.com/settings/connections/applications/${githubClientId}`,
   };
 
+  // GitHub用リダイレクトURI
+  const githubRedirectUri = AuthSession.makeRedirectUri({
+    scheme: 'batsugaku',
+    path: 'auth/github',
+  });
+  console.log('=== GitHub Redirect URI ===', githubRedirectUri);
+
   const [githubRequest, githubResponse, githubPromptAsync] = AuthSession.useAuthRequest(
     {
       clientId: githubClientId,
       scopes: ['read:user', 'repo'],
-      redirectUri: AuthSession.makeRedirectUri({
-        scheme: 'batsugaku',
-        path: 'auth/github',
-      }),
+      redirectUri: githubRedirectUri,
     },
     githubDiscovery
   );
@@ -70,14 +74,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     revocationEndpoint: 'https://api.twitter.com/2/oauth2/revoke',
   };
 
+  // X用リダイレクトURI
+  const xRedirectUri = AuthSession.makeRedirectUri({
+    scheme: 'batsugaku',
+    path: 'auth/twitter',
+  });
+  console.log('=== X Redirect URI ===', xRedirectUri);
+
   const [xRequest, xResponse, xPromptAsync] = AuthSession.useAuthRequest(
     {
       clientId: xClientId,
       scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
-      redirectUri: AuthSession.makeRedirectUri({
-        scheme: 'batsugaku',
-        path: 'auth/twitter',
-      }),
+      redirectUri: xRedirectUri,
       usePKCE: true,
     },
     xDiscovery
@@ -444,6 +452,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [user]);
 
+  // ローカルユーザー状態を更新
+  const updateUser = useCallback((updates: Partial<User>) => {
+    if (!user) return;
+    setUser({
+      ...user,
+      ...updates,
+    });
+  }, [user]);
+
   const value: AuthContextType = {
     user,
     loading,
@@ -453,6 +470,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     linkGitHubAccount,
     unlinkXAccount,
     unlinkGitHubAccount,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

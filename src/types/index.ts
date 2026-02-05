@@ -147,6 +147,7 @@ export interface AuthContextType {
   linkGitHubAccount: () => Promise<void>;
   unlinkXAccount: () => Promise<void>;
   unlinkGitHubAccount: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 // ナビゲーション
