@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   purchaseButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: '#FFFFFF',
   },
   restoreButton: {
     backgroundColor: 'transparent',

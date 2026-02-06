@@ -92,10 +92,10 @@ export default function LinkingScreen() {
             activeOpacity={0.8}
           >
             {xLoading ? (
-              <ActivityIndicator size="small" color="#1a3fc7" />
+              <ActivityIndicator size="small" color="#4285F4" />
             ) : (
               <Text style={[styles.outlineButtonText, xLinked && styles.linkedButtonText]}>
-                {xLinked ? 'X連携済み ✓' : 'Xと連携'}
+                {xLinked ? 'X連携済み ✓' : 'X（Twitter）と連携'}
               </Text>
             )}
           </TouchableOpacity>
@@ -170,17 +170,17 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 30,
     borderWidth: 2,
-    borderColor: '#1a3fc7',
+    borderColor: '#4285F4',
   },
   outlineButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1a3fc7',
+    color: '#4285F4',
   },
   filledButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1a3fc7',
+    backgroundColor: '#4285F4',
     paddingVertical: 16,
     borderRadius: 30,
   },

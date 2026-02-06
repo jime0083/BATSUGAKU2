@@ -1,13 +1,11 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS } from '../../src/constants';
 
 // シンプルなアイコンコンポーネント
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: { [key: string]: string } = {
     home: '🏠',
     badges: '🏆',
-    goal: '🎯',
     settings: '⚙️',
   };
 
@@ -25,17 +23,17 @@ export default function MainLayout() {
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.border,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#E0E0E0',
           height: 60,
           paddingBottom: 8,
         },
-        tabBarActiveTintColor: COLORS.accent,
-        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarActiveTintColor: '#4285F4',
+        tabBarInactiveTintColor: '#666666',
         headerStyle: {
-          backgroundColor: COLORS.primary,
+          backgroundColor: '#FFFFFF',
         },
-        headerTintColor: COLORS.text,
+        headerTintColor: '#000000',
         headerTitleStyle: {
           fontWeight: 'bold',
         },
@@ -58,14 +56,6 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
-        name="goal-edit"
-        options={{
-          title: '目標',
-          tabBarIcon: ({ focused }) => <TabIcon name="goal" focused={focused} />,
-          headerTitle: '目標設定',
-        }}
-      />
-      <Tabs.Screen
         name="settings"
         options={{
           title: '設定',
@@ -73,11 +63,18 @@ export default function MainLayout() {
           headerTitle: '設定',
         }}
       />
-      {/* サブスク解約画面はタブに表示しない（設定画面からアクセス） */}
+      {/* 以下の画面はタブに表示しない（設定画面からアクセス） */}
+      <Tabs.Screen
+        name="goal-edit"
+        options={{
+          href: null,
+          headerTitle: '目標設定',
+        }}
+      />
       <Tabs.Screen
         name="subscription-cancel"
         options={{
-          href: null, // タブバーに表示しない
+          href: null,
           headerTitle: 'サブスクリプション解約',
         }}
       />

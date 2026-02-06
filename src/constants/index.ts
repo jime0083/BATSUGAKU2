@@ -1,20 +1,20 @@
 // アプリ定数
-export const APP_NAME = 'バツガク';
-export const HASHTAG = '#バツガク';
+export const APP_NAME = 'BatsuGaku';
+export const HASHTAG = '#BatsuGaku';
 
-// 色定義
+// 色定義（統一デザイン: 白背景、黒テキスト、青アクセント）
 export const COLORS = {
-  primary: '#1a1a2e',
-  secondary: '#16213e',
-  accent: '#e94560',
-  success: '#4ade80',
-  warning: '#fbbf24',
-  error: '#ef4444',
-  background: '#0f0f23',
-  surface: '#1a1a2e',
-  text: '#ffffff',
-  textSecondary: '#a0a0a0',
-  border: '#2a2a4e',
+  primary: '#FFFFFF',
+  secondary: '#F5F5F5',
+  accent: '#4285F4',
+  success: '#4CAF50',
+  warning: '#FF9800',
+  error: '#F44336',
+  background: '#FFFFFF',
+  surface: '#F5F5F5',
+  text: '#000000',
+  textSecondary: '#666666',
+  border: '#E0E0E0',
 } as const;
 
 // 連続日数のマイルストーン（ツイート対象）
@@ -56,11 +56,11 @@ export const BADGES = {
 export const TWEET_TEMPLATES = {
   // 初回目標宣言投稿
   goalAnnouncement: (deadline: string, skill: string, incomeType: string, targetIncome: number) =>
-    `私は「${deadline}」までに「${skill}」で「${incomeType === 'monthly' ? '月収' : '年収'}」「${targetIncome}」万円稼げる様毎日サボらず努力します🔥\n${HASHTAG}`,
+    `私は${deadline}までに${skill}で${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万円稼げる様毎日サボらず努力します🔥\n${HASHTAG}`,
 
   // サボり投稿
   skip: (targetIncome: number, incomeType: string, skills: string[], monthCount: number, totalCount: number) =>
-    `私は${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万稼ぐエンジニアになるため${skills.join('、')}の学習をすると宣言したにも関わらず、学習をサボった愚かな人間です\n#今月${monthCount}回目 #累計${totalCount}回 ${HASHTAG}`,
+    `私は${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万稼ぐエンジニアになるため${skills.join('、')}の学習をすると宣言したにも関わらずサボった愚かな人間です\n#今月${monthCount}回目 #累計${totalCount}回 ${HASHTAG}`,
 
   // 連続達成投稿
   streak: (skills: string[], days: number) =>
@@ -72,11 +72,11 @@ export const TWEET_TEMPLATES = {
 
   // 通算日数達成投稿
   totalDaysAchievement: (deadline: string, skill: string, incomeType: string, targetIncome: number, totalDays: number) =>
-    `${deadline}までに「${skill}」で${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万円稼ぐという目標を設定してから通算${totalDays}日作業しました目標を達成するため日々がんばっています🔥\n${HASHTAG}`,
+    `${deadline}までに${skill}で${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万円稼ぐという目標を設定してから通算${totalDays}日作業しました目標を達成するため日々がんばっています🔥\n${HASHTAG}`,
 
   // 連続日数達成投稿
   streakAchievement: (deadline: string, skill: string, incomeType: string, targetIncome: number, streakDays: number) =>
-    `${deadline}までに「${skill}」で${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万円稼ぐという目標を設定してから${streakDays}日連続で作業しました目標を達成するため日々がんばっています🔥\n${HASHTAG}`,
+    `${deadline}までに${skill}で${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万円稼ぐという目標を設定してから${streakDays}日連続で作業しました目標を達成するため日々がんばっています🔥\n${HASHTAG}`,
 } as const;
 
 // 通知メッセージ

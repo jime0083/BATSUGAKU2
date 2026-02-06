@@ -77,7 +77,7 @@ export default function LoginScreen() {
           >
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#1a1acd" />
+                <ActivityIndicator size="small" color="#4285F4" />
                 <Text style={styles.googleButtonText}>ログイン中...</Text>
               </View>
             ) : (
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     width: '100%',
     borderWidth: 2,
-    borderColor: '#1a1acd',
+    borderColor: '#4285F4',
   },
   googleButtonDisabled: {
     opacity: 0.7,
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   googleButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1a1acd',
+    color: '#4285F4',
   },
   loadingContainer: {
     flexDirection: 'row',

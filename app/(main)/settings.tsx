@@ -3,10 +3,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { COLORS } from '../../src/constants';
 import { useSubscription } from '../../src/hooks/useSubscription';
 import { PaywallScreen } from '../../src/components';
 import { getSubscriptionStatusText, getSubscriptionDaysRemaining } from '../../src/lib/subscription';
+
+// 統一カラーパレット
+const COLORS = {
+  background: '#FFFFFF',
+  surface: '#F5F5F5',
+  text: '#000000',
+  textSecondary: '#666666',
+  accent: '#4285F4',
+  border: '#E0E0E0',
+  success: '#4CAF50',
+  warning: '#FF9800',
+  error: '#F44336',
+};
 
 export default function SettingsScreen() {
   const { user, signOut, linkXAccount, linkGitHubAccount, unlinkXAccount, unlinkGitHubAccount } = useAuth();
@@ -22,6 +34,22 @@ export default function SettingsScreen() {
       [
         { text: 'キャンセル', style: 'cancel' },
         { text: 'ログアウト', style: 'destructive', onPress: signOut },
+      ]
+    );
+  };
+
+  const handleChangeGoal = () => {
+    Alert.alert(
+      '目標を変更',
+      '新しい目標を設定すると、現在の目標は上書きされます。続行しますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '変更する',
+          onPress: () => {
+            router.push('/onboarding');
+          },
+        },
       ]
     );
   };
@@ -132,7 +160,7 @@ export default function SettingsScreen() {
                     {user.goal.skills.join(', ')}
                   </Text>
                 </View>
-                <View style={styles.settingRow}>
+                <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
                   <Text style={styles.settingLabel}>目標期限</Text>
                   <Text style={styles.settingValue}>
                     {user.goal.deadline?.toDate?.()?.toLocaleDateString('ja-JP') || '未設定'}
@@ -143,10 +171,10 @@ export default function SettingsScreen() {
               <Text style={styles.notSetText}>目標が設定されていません</Text>
             )}
             <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => router.push('/(main)/goal-edit')}
+              style={styles.primaryButton}
+              onPress={handleChangeGoal}
             >
-              <Text style={styles.editButtonText}>目標を編集</Text>
+              <Text style={styles.primaryButtonText}>目標を変更する</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -241,10 +269,10 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={styles.upgradeButton}
+                  style={styles.linkButton}
                   onPress={() => setShowPaywall(true)}
                 >
-                  <Text style={styles.upgradeButtonText}>アップグレード</Text>
+                  <Text style={styles.linkButtonText}>アップグレード</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -269,7 +297,7 @@ export default function SettingsScreen() {
                 value={user?.notificationsEnabled}
                 onValueChange={() => {}}
                 trackColor={{ false: COLORS.border, true: COLORS.accent }}
-                thumbColor={COLORS.text}
+                thumbColor="#FFFFFF"
               />
             </View>
           </View>
@@ -289,7 +317,7 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>アプリ情報</Text>
           <View style={styles.card}>
-            <View style={styles.settingRow}>
+            <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
               <Text style={styles.settingLabel}>バージョン</Text>
               <Text style={styles.settingValue}>1.0.0</Text>
             </View>
@@ -348,7 +376,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: '#FFFFFF',
   },
   profileInfo: {
     marginLeft: 12,
@@ -387,19 +415,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 8,
   },
-  editButton: {
+  primaryButton: {
     marginTop: 16,
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
+    backgroundColor: COLORS.accent,
+    borderRadius: 30,
+    paddingVertical: 14,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.accent,
   },
-  editButtonText: {
+  primaryButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.accent,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   connectionRow: {
     flexDirection: 'row',
@@ -434,7 +460,7 @@ const styles = StyleSheet.create({
   linkButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.text,
+    color: '#FFFFFF',
   },
   unlinkButton: {
     backgroundColor: 'transparent',
@@ -480,17 +506,6 @@ const styles = StyleSheet.create({
     color: COLORS.warning,
     marginTop: 2,
   },
-  upgradeButton: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  upgradeButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
   manageButton: {
     backgroundColor: 'transparent',
     borderRadius: 6,
@@ -516,13 +531,13 @@ const styles = StyleSheet.create({
   },
   dangerButton: {
     backgroundColor: COLORS.error,
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 30,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   dangerButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: '#FFFFFF',
   },
 });

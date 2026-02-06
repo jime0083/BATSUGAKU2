@@ -6,8 +6,19 @@ import { useDashboardData } from '../../src/hooks/useDashboardData';
 import { useSubscription } from '../../src/hooks/useSubscription';
 import { DailyCheckButton, DailyCheckResultModal, PaywallScreen } from '../../src/components';
 import { DailyCheckResultDisplay } from '../../src/hooks/useDailyCheck';
-import { COLORS } from '../../src/constants';
 import { shouldPostGoalTweet, postGoalTweet } from '../../src/lib/goalTweetService';
+
+// 統一カラーパレット
+const COLORS = {
+  background: '#FFFFFF',
+  surface: '#F5F5F5',
+  text: '#000000',
+  textSecondary: '#666666',
+  accent: '#4285F4',
+  border: '#E0E0E0',
+  success: '#4CAF50',
+  error: '#F44336',
+};
 
 export default function DashboardScreen() {
   const { user } = useAuth();
@@ -51,7 +62,6 @@ export default function DashboardScreen() {
   }, [refresh]);
 
   const handleCheckComplete = useCallback(() => {
-    // チェック完了後にデータを更新
     refresh();
   }, [refresh]);
 
@@ -186,7 +196,7 @@ export default function DashboardScreen() {
               {user?.githubLinked ? `連携済み (@${user.githubUsername})` : '未連携'}
             </Text>
           </View>
-          <View style={styles.connectionRow}>
+          <View style={[styles.connectionRow, { borderBottomWidth: 0 }]}>
             <Text style={styles.connectionLabel}>X (Twitter)</Text>
             <Text style={[styles.connectionStatus, user?.xLinked && styles.connected]}>
               {user?.xLinked ? '連携済み' : '未連携'}
@@ -241,7 +251,7 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: COLORS.accent,
   },
   streakLabel: {
@@ -388,7 +398,7 @@ const styles = StyleSheet.create({
   },
   connectionStatus: {
     fontSize: 12,
-    color: COLORS.warning,
+    color: COLORS.error,
   },
   connected: {
     color: COLORS.success,

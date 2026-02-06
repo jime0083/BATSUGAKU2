@@ -1,7 +1,18 @@
-import { View, Text, StyleSheet, ScrollView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { COLORS, BADGES } from '../../src/constants';
+import { BADGES } from '../../src/constants';
+
+// 統一カラーパレット
+const COLORS = {
+  background: '#FFFFFF',
+  surface: '#F5F5F5',
+  text: '#000000',
+  textSecondary: '#666666',
+  accent: '#4285F4',
+  border: '#E0E0E0',
+  success: '#4CAF50',
+};
 
 interface BadgeItem {
   id: string;
@@ -120,6 +131,8 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     flexDirection: 'row',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.accent,
   },
   summaryValue: {
     fontSize: 48,
@@ -154,7 +167,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: COLORS.accent,
   },
   badgeCardLocked: {
@@ -191,7 +204,7 @@ const styles = StyleSheet.create({
   },
   earnedText: {
     fontSize: 8,
-    color: COLORS.text,
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
 });
