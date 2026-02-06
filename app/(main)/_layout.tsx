@@ -44,7 +44,7 @@ export default function MainLayout() {
         options={{
           title: 'ホーム',
           tabBarIcon: ({ focused }) => <TabIcon name="home" focused={focused} />,
-          headerTitle: 'バツガク',
+          headerTitle: 'ホーム',
         }}
       />
       <Tabs.Screen
