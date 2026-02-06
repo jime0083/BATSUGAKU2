@@ -61,6 +61,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       clientId: githubClientId,
       scopes: ['read:user', 'repo'],
       redirectUri: githubRedirectUri,
+      usePKCE: false, // GitHub OAuth AppsはPKCEをサポートしていない
     },
     githubDiscovery
   );
@@ -382,15 +383,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // GitHub アカウント連携
   const linkGitHubAccount = useCallback(async () => {
     if (!githubRequest) {
+      console.error('GitHub OAuth request not ready');
+      console.error('githubRequest:', githubRequest);
       throw new Error('GitHub OAuth request not ready');
     }
     try {
-      await githubPromptAsync();
+      console.log('=== GitHub OAuth Debug ===');
+      console.log('Client ID:', githubClientId);
+      console.log('Redirect URI:', githubRedirectUri);
+      console.log('Request URL:', githubRequest.url);
+      console.log('Request state:', githubRequest.state);
+      console.log('PKCE enabled:', !!githubRequest.codeVerifier);
+
+      // GitHub OAuth URLを手動で構築して確認
+      const expectedUrl = `https://github.com/login/oauth/authorize?client_id=${githubClientId}&redirect_uri=${encodeURIComponent(githubRedirectUri)}&scope=${encodeURIComponent('read:user repo')}&state=${githubRequest.state}`;
+      console.log('Expected URL format:', expectedUrl);
+
+      const result = await githubPromptAsync();
+      console.log('=== GitHub OAuth Result ===');
+      console.log('Result type:', result.type);
+      if (result.type === 'error') {
+        console.error('OAuth error:', result.error);
+      } else if (result.type === 'success') {
+        console.log('OAuth success, params:', result.params);
+      } else if (result.type === 'dismiss') {
+        console.log('OAuth dismissed by user');
+      }
     } catch (error) {
       console.error('GitHub OAuth error:', error);
       throw error;
     }
-  }, [githubRequest, githubPromptAsync]);
+  }, [githubRequest, githubPromptAsync, githubClientId, githubRedirectUri]);
 
   // X (Twitter) アカウント連携解除
   const unlinkXAccount = useCallback(async () => {

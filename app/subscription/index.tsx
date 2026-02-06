@@ -7,17 +7,20 @@ import {
   ActivityIndicator,
   ScrollView,
   Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useSubscription } from '../../src/hooks/useSubscription';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../src/lib/firebase';
 
 const PRIVACY_POLICY_URL = 'https://batugaku2-ad498.web.app/privacy-policy.html';
 const TERMS_URL = 'https://batugaku2-ad498.web.app/terms-of-service.html';
 
 export default function SubscriptionScreen() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const subscription = useSubscription(user);
   const { isLoading, error, purchase, restore, PRODUCT_IDS } = subscription;
 
@@ -27,11 +30,51 @@ export default function SubscriptionScreen() {
     const productId = selectedPlan === 'yearly'
       ? PRODUCT_IDS.YEARLY_3000
       : PRODUCT_IDS.MONTHLY_300;
-    await purchase(productId);
+
+    try {
+      const success = await purchase(productId);
+
+      if (success && user) {
+        // Firestoreから最新のユーザーデータを取得してローカル状態を更新
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          updateUser({
+            subscription: userData.subscription,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Purchase error:', err);
+      Alert.alert('エラー', '購入処理中にエラーが発生しました。');
+    }
   };
 
   const handleRestore = async () => {
-    await restore();
+    try {
+      const success = await restore();
+
+      if (success && user) {
+        // Firestoreから最新のユーザーデータを取得してローカル状態を更新
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          updateUser({
+            subscription: userData.subscription,
+          });
+        }
+        Alert.alert('成功', '購入を復元しました。');
+      } else {
+        Alert.alert('情報', '復元できる購入が見つかりませんでした。');
+      }
+    } catch (err) {
+      console.error('Restore error:', err);
+      Alert.alert('エラー', '復元処理中にエラーが発生しました。');
+    }
   };
 
   const handleOpenTerms = () => {

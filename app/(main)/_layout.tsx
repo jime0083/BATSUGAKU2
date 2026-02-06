@@ -7,6 +7,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: { [key: string]: string } = {
     home: '🏠',
     badges: '🏆',
+    goal: '🎯',
     settings: '⚙️',
   };
 
@@ -57,11 +58,27 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
+        name="goal-edit"
+        options={{
+          title: '目標',
+          tabBarIcon: ({ focused }) => <TabIcon name="goal" focused={focused} />,
+          headerTitle: '目標設定',
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: '設定',
           tabBarIcon: ({ focused }) => <TabIcon name="settings" focused={focused} />,
           headerTitle: '設定',
+        }}
+      />
+      {/* サブスク解約画面はタブに表示しない（設定画面からアクセス） */}
+      <Tabs.Screen
+        name="subscription-cancel"
+        options={{
+          href: null, // タブバーに表示しない
+          headerTitle: 'サブスクリプション解約',
         }}
       />
     </Tabs>
