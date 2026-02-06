@@ -4,15 +4,22 @@ exports.getTodayPushEvents = getTodayPushEvents;
 exports.checkUserPush = checkUserPush;
 const GITHUB_API_BASE_URL = 'https://api.github.com';
 /**
- * ユーザーの今日のpushイベントを取得
+ * ユーザーの昨日のpushイベントを取得
+ * 日次チェックは0:00 JSTに実行されるため、前日（終了した日）のpushをチェックする
  */
 async function getTodayPushEvents(accessToken, username) {
     try {
-        // 今日の日付範囲を計算（JST基準）
+        // 日付範囲を計算（JST基準）
+        // 日次チェックは0:00 JSTに実行されるため、前日のpushをチェックする
         const now = new Date();
         const jstOffset = 9 * 60 * 60 * 1000; // JST = UTC + 9時間
         const jstNow = new Date(now.getTime() + jstOffset);
-        // JSTでの今日の0:00を計算
+        // JSTでの昨日の0:00を計算（前日の開始時刻）
+        const yesterdayStart = new Date(jstNow);
+        yesterdayStart.setUTCHours(0, 0, 0, 0);
+        yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1); // 1日前
+        yesterdayStart.setTime(yesterdayStart.getTime() - jstOffset); // UTCに戻す
+        // JSTでの今日の0:00を計算（前日の終了時刻）
         const todayStart = new Date(jstNow);
         todayStart.setUTCHours(0, 0, 0, 0);
         todayStart.setTime(todayStart.getTime() - jstOffset); // UTCに戻す
@@ -32,12 +39,13 @@ async function getTodayPushEvents(accessToken, username) {
             };
         }
         const events = await response.json();
-        // PushEventをフィルタリング
+        // PushEventをフィルタリング（昨日のpushをチェック）
         const pushEvents = events.filter((event) => {
             if (event.type !== 'PushEvent')
                 return false;
             const eventDate = new Date(event.created_at);
-            return eventDate >= todayStart;
+            // 昨日0:00 JST <= イベント日時 < 今日0:00 JST
+            return eventDate >= yesterdayStart && eventDate < todayStart;
         });
         return {
             hasPushed: pushEvents.length > 0,

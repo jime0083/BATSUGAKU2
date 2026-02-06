@@ -3,9 +3,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useDashboardData } from '../../src/hooks/useDashboardData';
-import { useSubscription } from '../../src/hooks/useSubscription';
-import { DailyCheckButton, DailyCheckResultModal, PaywallScreen } from '../../src/components';
-import { DailyCheckResultDisplay } from '../../src/hooks/useDailyCheck';
 import { shouldPostGoalTweet, postGoalTweet } from '../../src/lib/goalTweetService';
 
 // 統一カラーパレット
@@ -22,12 +19,8 @@ const COLORS = {
 
 export default function DashboardScreen() {
   const { user } = useAuth();
-  const { weekDays, loading, error, refresh } = useDashboardData(user?.uid);
-  const subscription = useSubscription(user);
+  const { weekDays, loading, refresh } = useDashboardData(user?.uid);
   const [refreshing, setRefreshing] = useState(false);
-  const [showResultModal, setShowResultModal] = useState(false);
-  const [showPaywall, setShowPaywall] = useState(false);
-  const [checkResult, setCheckResult] = useState<DailyCheckResultDisplay | null>(null);
   const goalTweetAttempted = useRef(false);
 
   // 初回目標投稿（サブスク完了後に自動実行）
@@ -61,30 +54,6 @@ export default function DashboardScreen() {
     setRefreshing(false);
   }, [refresh]);
 
-  const handleCheckComplete = useCallback(() => {
-    refresh();
-  }, [refresh]);
-
-  const handleShowResult = useCallback((result: DailyCheckResultDisplay | null) => {
-    if (result) {
-      setCheckResult(result);
-      setShowResultModal(true);
-    }
-  }, []);
-
-  const handleCloseModal = useCallback(() => {
-    setShowResultModal(false);
-    setCheckResult(null);
-  }, []);
-
-  const handleShowPaywall = useCallback(() => {
-    setShowPaywall(true);
-  }, []);
-
-  const handleClosePaywall = useCallback(() => {
-    setShowPaywall(false);
-  }, []);
-
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView
@@ -101,8 +70,15 @@ export default function DashboardScreen() {
           </Text>
           {user?.goal && (
             <Text style={styles.goalText}>
-              目標: {user.goal.incomeType === 'monthly' ? '月収' : '年収'}
-              {user.goal.targetIncome}万円エンジニア
+              {(() => {
+                const deadline = user.goal.deadline?.toDate?.();
+                const year = deadline?.getFullYear() || '';
+                const month = deadline ? deadline.getMonth() + 1 : '';
+                const skills = user.goal.skills?.join('、') || '';
+                const incomeType = user.goal.incomeType === 'monthly' ? '月収' : '年収';
+                const income = user.goal.targetIncome || 0;
+                return `${year}年${month}月までに${skills}で${incomeType}${income}万円`;
+              })()}
             </Text>
           )}
         </View>
@@ -118,14 +94,6 @@ export default function DashboardScreen() {
             最長記録: {user?.stats.longestStreak || 0}日
           </Text>
         </View>
-
-        {/* 日次チェックボタン */}
-        <DailyCheckButton
-          user={user}
-          onCheckComplete={handleCheckComplete}
-          onShowResult={handleShowResult}
-          onShowPaywall={handleShowPaywall}
-        />
 
         {/* 今週の学習状況 */}
         <View style={styles.weekCard}>
@@ -170,19 +138,31 @@ export default function DashboardScreen() {
         {/* 統計カード */}
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{user?.stats.currentMonthStudyDays || 0}</Text>
+            <View style={styles.statValueContainer}>
+              <Text style={styles.statValue}>{user?.stats.currentMonthStudyDays || 0}</Text>
+              <Text style={styles.statUnit}>日</Text>
+            </View>
             <Text style={styles.statLabel}>今月の学習日数</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{user?.stats.currentMonthSkipDays || 0}</Text>
+            <View style={styles.statValueContainer}>
+              <Text style={styles.statValue}>{user?.stats.currentMonthSkipDays || 0}</Text>
+              <Text style={styles.statUnit}>日</Text>
+            </View>
             <Text style={styles.statLabel}>今月のサボり日数</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{user?.stats.totalStudyDays || 0}</Text>
+            <View style={styles.statValueContainer}>
+              <Text style={styles.statValue}>{user?.stats.totalStudyDays || 0}</Text>
+              <Text style={styles.statUnit}>日</Text>
+            </View>
             <Text style={styles.statLabel}>累計学習日数</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{user?.stats.totalSkipDays || 0}</Text>
+            <View style={styles.statValueContainer}>
+              <Text style={styles.statValue}>{user?.stats.totalSkipDays || 0}</Text>
+              <Text style={styles.statUnit}>日</Text>
+            </View>
             <Text style={styles.statLabel}>累計サボり日数</Text>
           </View>
         </View>
@@ -204,20 +184,6 @@ export default function DashboardScreen() {
           </View>
         </View>
       </ScrollView>
-
-      {/* 日次チェック結果モーダル */}
-      <DailyCheckResultModal
-        visible={showResultModal}
-        result={checkResult}
-        onClose={handleCloseModal}
-      />
-
-      {/* Paywallモーダル */}
-      <PaywallScreen
-        visible={showPaywall}
-        onClose={handleClosePaywall}
-        subscription={subscription}
-      />
     </SafeAreaView>
   );
 }
@@ -368,10 +334,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     alignItems: 'center',
   },
+  statValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
   statValue: {
     fontSize: 32,
     fontWeight: 'bold',
     color: COLORS.text,
+  },
+  statUnit: {
+    fontSize: 16,
+    color: COLORS.text,
+    marginLeft: 2,
   },
   statLabel: {
     fontSize: 12,

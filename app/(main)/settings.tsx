@@ -2,6 +2,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Ac
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { router } from 'expo-router';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../src/lib/firebase';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useSubscription } from '../../src/hooks/useSubscription';
 import { PaywallScreen } from '../../src/components';
@@ -21,7 +23,7 @@ const COLORS = {
 };
 
 export default function SettingsScreen() {
-  const { user, signOut, linkXAccount, linkGitHubAccount, unlinkXAccount, unlinkGitHubAccount } = useAuth();
+  const { user, signOut, linkXAccount, linkGitHubAccount, unlinkXAccount, unlinkGitHubAccount, updateUser } = useAuth();
   const [linkingGitHub, setLinkingGitHub] = useState(false);
   const [linkingX, setLinkingX] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
@@ -46,8 +48,17 @@ export default function SettingsScreen() {
         { text: 'キャンセル', style: 'cancel' },
         {
           text: '変更する',
-          onPress: () => {
-            router.push('/onboarding');
+          onPress: async () => {
+            if (!user) return;
+            try {
+              // onboardingCompletedをfalseに設定してオンボーディング画面への遷移を許可
+              const userRef = doc(db, 'users', user.uid);
+              await updateDoc(userRef, { onboardingCompleted: false });
+              // ローカルユーザー状態も更新（app/_layout.tsxのuseEffectがナビゲーションを処理）
+              updateUser({ onboardingCompleted: false });
+            } catch (error) {
+              Alert.alert('エラー', '目標変更画面への遷移に失敗しました');
+            }
           },
         },
       ]
