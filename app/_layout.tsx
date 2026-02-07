@@ -1,8 +1,9 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import LottieView from 'lottie-react-native';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { COLORS } from '../src/constants';
 import { hasPremiumAccess } from '../src/lib/subscription';
@@ -77,10 +78,24 @@ function RootLayoutNav() {
   }, [user, loading, segments]);
 
   if (loading) {
-    console.log('Showing loading spinner');
+    console.log('Showing loading screen');
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
+      <View style={loadingStyles.container}>
+        <View style={loadingStyles.iconContainer}>
+          <Image
+            source={require('../assets/images/icon.png')}
+            style={loadingStyles.icon}
+            resizeMode="contain"
+          />
+        </View>
+        <View style={loadingStyles.animationContainer}>
+          <LottieView
+            source={require('../assets/animations/Loading Dots Blue.json')}
+            autoPlay
+            loop
+            style={loadingStyles.animation}
+          />
+        </View>
       </View>
     );
   }
@@ -114,10 +129,37 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
-          <StatusBar style="light" />
+          <StatusBar style="dark" />
           <RootLayoutNav />
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
+
+const loadingStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  icon: {
+    width: 200,
+    height: 200,
+    borderRadius: 20,
+  },
+  animationContainer: {
+    height: 100,
+    marginBottom: 100,
+  },
+  animation: {
+    width: 150,
+    height: 100,
+  },
+});

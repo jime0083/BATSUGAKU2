@@ -1,9 +1,14 @@
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { db } from '../../src/lib/firebase';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useDashboardData } from '../../src/hooks/useDashboardData';
 import { shouldPostGoalTweet, postGoalTweet } from '../../src/lib/goalTweetService';
+import { hasPushedToday } from '../../src/lib/github';
+import { UserStats } from '../../src/types';
 
 // 統一カラーパレット
 const COLORS = {
@@ -17,11 +22,100 @@ const COLORS = {
   error: '#F44336',
 };
 
+// 今日の日付文字列を取得（YYYY-MM-DD形式）
+const getTodayDateString = (): string => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+};
+
+// 昨日の日付文字列を取得
+const getYesterdayDateString = (): string => {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+};
+
+// TimestampからYYYY-MM-DD形式の文字列を取得
+const timestampToDateString = (timestamp: Timestamp | null): string | null => {
+  if (!timestamp) return null;
+  const date = timestamp.toDate();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 export default function DashboardScreen() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { weekDays, loading, refresh } = useDashboardData(user?.uid);
   const [refreshing, setRefreshing] = useState(false);
   const goalTweetAttempted = useRef(false);
+  const pushCheckAttempted = useRef(false);
+
+  // GitHub push時に統計を更新する関数
+  const updateStatsOnPush = useCallback(async () => {
+    if (!user) return null;
+
+    const todayString = getTodayDateString();
+    const yesterdayString = getYesterdayDateString();
+    const lastStudyDateString = timestampToDateString(user.stats.lastStudyDate);
+
+    // 既に今日更新済みの場合はスキップ
+    if (lastStudyDateString === todayString) {
+      return null;
+    }
+
+    // 新しい統計を計算
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const lastStudyDate = user.stats.lastStudyDate?.toDate();
+    const lastStudyMonth = lastStudyDate?.getMonth();
+
+    // 連続日数を計算
+    let newStreak = 1;
+    if (lastStudyDateString === yesterdayString) {
+      // 昨日も学習していた場合、連続を継続
+      newStreak = (user.stats.currentStreak || 0) + 1;
+    }
+
+    // 今月の学習日数（月が変わっていたらリセット）
+    let newMonthStudyDays = user.stats.currentMonthStudyDays || 0;
+    if (lastStudyMonth !== currentMonth) {
+      newMonthStudyDays = 1;
+    } else {
+      newMonthStudyDays += 1;
+    }
+
+    const newStats: Partial<UserStats> = {
+      currentMonthStudyDays: newMonthStudyDays,
+      totalStudyDays: (user.stats.totalStudyDays || 0) + 1,
+      currentStreak: newStreak,
+      longestStreak: Math.max(user.stats.longestStreak || 0, newStreak),
+      lastStudyDate: Timestamp.fromDate(today),
+    };
+
+    try {
+      // Firestoreを更新
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        'stats.currentMonthStudyDays': newStats.currentMonthStudyDays,
+        'stats.totalStudyDays': newStats.totalStudyDays,
+        'stats.currentStreak': newStats.currentStreak,
+        'stats.longestStreak': newStats.longestStreak,
+        'stats.lastStudyDate': newStats.lastStudyDate,
+      });
+
+      // ローカル状態を更新
+      updateUser({
+        stats: {
+          ...user.stats,
+          ...newStats,
+        },
+      });
+
+      return newStats;
+    } catch (error) {
+      console.error('Failed to update stats:', error);
+      return null;
+    }
+  }, [user, updateUser]);
 
   // 初回目標投稿（サブスク完了後に自動実行）
   useEffect(() => {
@@ -48,11 +142,99 @@ export default function DashboardScreen() {
     postInitialGoalTweet();
   }, [user]);
 
+  // GitHub push検出と通知・統計更新
+  useEffect(() => {
+    const checkGitHubPush = async () => {
+      if (!user || pushCheckAttempted.current) {
+        return;
+      }
+
+      // GitHub連携がない場合はスキップ
+      if (!user.githubLinked || !user.githubUsername || !user.githubAccessToken) {
+        return;
+      }
+
+      pushCheckAttempted.current = true;
+
+      try {
+        // 今日の日付キー（通知済みかどうかの判定用）
+        const today = new Date();
+        const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+        const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
+
+        // 既に今日通知済みかチェック
+        const alreadyNotified = await AsyncStorage.getItem(storageKey);
+        if (alreadyNotified) {
+          return;
+        }
+
+        // GitHub pushをチェック
+        const pushed = await hasPushedToday(user.githubUsername, user.githubAccessToken);
+
+        if (pushed) {
+          // 統計を更新
+          const newStats = await updateStatsOnPush();
+
+          // 通知済みフラグを保存
+          await AsyncStorage.setItem(storageKey, 'true');
+
+          // 連続日数を取得（更新後の値を使用）
+          const streakDays = newStats?.currentStreak || (user.stats.currentStreak || 0) + 1;
+
+          // 達成通知を表示
+          Alert.alert(
+            'お疲れ様でした！🎉',
+            streakDays > 1
+              ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
+              : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
+          );
+
+          // ダッシュボードデータをリフレッシュ
+          refresh();
+        }
+      } catch (error) {
+        console.error('GitHub push check error:', error);
+      }
+    };
+
+    checkGitHubPush();
+  }, [user, updateStatsOnPush, refresh]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refresh();
+
+    // リフレッシュ時にGitHub pushもチェック
+    if (user?.githubLinked && user?.githubUsername && user?.githubAccessToken) {
+      try {
+        const today = new Date();
+        const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+        const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
+
+        const alreadyNotified = await AsyncStorage.getItem(storageKey);
+        if (!alreadyNotified) {
+          const pushed = await hasPushedToday(user.githubUsername, user.githubAccessToken);
+          if (pushed) {
+            // 統計を更新
+            const newStats = await updateStatsOnPush();
+
+            await AsyncStorage.setItem(storageKey, 'true');
+            const streakDays = newStats?.currentStreak || (user.stats.currentStreak || 0) + 1;
+            Alert.alert(
+              'お疲れ様でした！🎉',
+              streakDays > 1
+                ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
+                : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
+            );
+          }
+        }
+      } catch (error) {
+        console.error('GitHub push check error:', error);
+      }
+    }
+
     setRefreshing(false);
-  }, [refresh]);
+  }, [refresh, user, updateStatsOnPush]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

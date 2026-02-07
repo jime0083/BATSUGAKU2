@@ -1,19 +1,32 @@
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 
-// シンプルなアイコンコンポーネント
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const icons: { [key: string]: string } = {
-    home: '🏠',
-    badges: '🏆',
-    settings: '⚙️',
-  };
+// アイコン画像の定義
+const icons = {
+  home: {
+    active: require('../../assets/icons/home-blue.png'),
+    inactive: require('../../assets/icons/home-gray.png'),
+  },
+  badges: {
+    active: require('../../assets/icons/badgeーblue.png'),
+    inactive: require('../../assets/icons/badge-gray.png'),
+  },
+  settings: {
+    active: require('../../assets/icons/gear-blue.png'),
+    inactive: require('../../assets/icons/gear-gray.png'),
+  },
+};
 
+// タブアイコンコンポーネント
+function TabIcon({ name, focused }: { name: 'home' | 'badges' | 'settings'; focused: boolean }) {
+  const icon = icons[name];
   return (
     <View style={styles.iconContainer}>
-      <Text style={[styles.icon, focused && styles.iconFocused]}>
-        {icons[name] || '📱'}
-      </Text>
+      <Image
+        source={focused ? icon.active : icon.inactive}
+        style={styles.icon}
+        resizeMode="contain"
+      />
     </View>
   );
 }
@@ -88,10 +101,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   icon: {
-    fontSize: 24,
-    opacity: 0.6,
-  },
-  iconFocused: {
-    opacity: 1,
+    width: 24,
+    height: 24,
   },
 });

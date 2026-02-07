@@ -1,7 +1,10 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth } from 'firebase/auth';
+// @ts-expect-error - getReactNativePersistence exists at runtime but TypeScript types may not include it
+import { getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getMessaging, isSupported } from 'firebase/messaging';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 // Firebase設定（環境変数から読み込み）
@@ -17,8 +20,12 @@ const firebaseConfig = {
 // Firebase初期化（重複初期化を防ぐ）
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Firebase Auth
-export const auth = getAuth(app);
+// Firebase Auth（React Native永続化を使用してログイン状態を保持）
+export const auth = getApps().length === 1
+  ? initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    })
+  : getAuth(app);
 
 // Firestore
 export const db = getFirestore(app);
