@@ -76,6 +76,8 @@ export async function fetchTodayPushEvents(
   username: string,
   accessToken: string
 ): Promise<GitHubEvent[]> {
+  console.log('fetchTodayPushEvents: username =', username);
+
   const response = await fetch(`${GITHUB_API_BASE}/users/${username}/events`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -84,24 +86,46 @@ export async function fetchTodayPushEvents(
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('GitHub API error:', response.status, response.statusText, errorText);
     throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
   }
 
   const events: GitHubEvent[] = await response.json();
+  console.log('fetchTodayPushEvents: total events =', events.length);
 
-  // 今日の日付を取得（JST考慮）
+  // 今日の日付を取得（ローカルタイムゾーンの0時から）
   const today = new Date();
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
+  console.log('fetchTodayPushEvents: todayStart =', todayStart.toISOString());
+
+  // 全てのPushEventをログ
+  const pushEvents = events.filter((event) => event.type === 'PushEvent');
+  console.log('fetchTodayPushEvents: total push events =', pushEvents.length);
+
+  if (pushEvents.length > 0) {
+    console.log('fetchTodayPushEvents: most recent push events:');
+    pushEvents.slice(0, 5).forEach((event, i) => {
+      console.log(`  [${i}] created_at: ${event.created_at}, repo: ${event.repo.name}`);
+    });
+  }
+
   // PushEventのみ、かつ今日のイベントのみをフィルタ
-  return events.filter((event) => {
+  const todayPushEvents = events.filter((event) => {
     if (event.type !== 'PushEvent') {
       return false;
     }
 
     const eventDate = new Date(event.created_at);
-    return eventDate >= todayStart;
+    const isToday = eventDate >= todayStart;
+    console.log(`fetchTodayPushEvents: event ${event.created_at} >= ${todayStart.toISOString()} = ${isToday}`);
+    return isToday;
   });
+
+  console.log('fetchTodayPushEvents: today push events =', todayPushEvents.length);
+
+  return todayPushEvents;
 }
 
 /**
@@ -111,8 +135,14 @@ export async function hasPushedToday(
   username: string,
   accessToken: string
 ): Promise<boolean> {
-  const events = await fetchTodayPushEvents(username, accessToken);
-  return events.length > 0;
+  try {
+    const events = await fetchTodayPushEvents(username, accessToken);
+    console.log('hasPushedToday: result =', events.length > 0);
+    return events.length > 0;
+  } catch (error) {
+    console.error('hasPushedToday error:', error);
+    throw error;
+  }
 }
 
 /**

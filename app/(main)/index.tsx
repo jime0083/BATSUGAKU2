@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '../../src/lib/firebase';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useDashboardData } from '../../src/hooks/useDashboardData';
@@ -36,9 +36,22 @@ const getYesterdayDateString = (): string => {
 };
 
 // TimestampからYYYY-MM-DD形式の文字列を取得
-const timestampToDateString = (timestamp: Timestamp | null): string | null => {
+const timestampToDateString = (timestamp: Timestamp | Date | null | undefined): string | null => {
   if (!timestamp) return null;
-  const date = timestamp.toDate();
+
+  let date: Date;
+  if (timestamp instanceof Date) {
+    date = timestamp;
+  } else if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
+    date = timestamp.toDate();
+  } else if (typeof timestamp === 'object' && 'seconds' in timestamp) {
+    // Firestore Timestamp形式のオブジェクト
+    date = new Date((timestamp as { seconds: number }).seconds * 1000);
+  } else {
+    console.warn('Unknown timestamp format:', timestamp);
+    return null;
+  }
+
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
@@ -50,22 +63,29 @@ export default function DashboardScreen() {
   const pushCheckAttempted = useRef(false);
 
   // GitHub push時に統計を更新する関数
-  const updateStatsOnPush = useCallback(async () => {
-    if (!user) return null;
+  const updateStatsOnPush = useCallback(async (): Promise<Partial<UserStats> | null> => {
+    if (!user) {
+      console.log('updateStatsOnPush: user is null');
+      return null;
+    }
 
     const todayString = getTodayDateString();
     const yesterdayString = getYesterdayDateString();
     const lastStudyDateString = timestampToDateString(user.stats.lastStudyDate);
 
+    console.log('updateStatsOnPush: todayString =', todayString);
+    console.log('updateStatsOnPush: lastStudyDateString =', lastStudyDateString);
+
     // 既に今日更新済みの場合はスキップ
     if (lastStudyDateString === todayString) {
+      console.log('updateStatsOnPush: already updated today, skipping');
       return null;
     }
 
     // 新しい統計を計算
     const today = new Date();
     const currentMonth = today.getMonth();
-    const lastStudyDate = user.stats.lastStudyDate?.toDate();
+    const lastStudyDate = user.stats.lastStudyDate?.toDate?.();
     const lastStudyMonth = lastStudyDate?.getMonth();
 
     // 連続日数を計算
@@ -91,6 +111,8 @@ export default function DashboardScreen() {
       lastStudyDate: Timestamp.fromDate(today),
     };
 
+    console.log('updateStatsOnPush: newStats =', JSON.stringify(newStats, null, 2));
+
     try {
       // Firestoreを更新
       const userRef = doc(db, 'users', user.uid);
@@ -102,13 +124,17 @@ export default function DashboardScreen() {
         'stats.lastStudyDate': newStats.lastStudyDate,
       });
 
-      // ローカル状態を更新
-      updateUser({
-        stats: {
-          ...user.stats,
-          ...newStats,
-        },
-      });
+      console.log('updateStatsOnPush: Firestore updated successfully');
+
+      // Firestoreから最新データを再取得してローカル状態を更新
+      const updatedDoc = await getDoc(userRef);
+      if (updatedDoc.exists()) {
+        const updatedData = updatedDoc.data();
+        console.log('updateStatsOnPush: fetched updated stats =', JSON.stringify(updatedData.stats, null, 2));
+        updateUser({
+          stats: updatedData.stats,
+        });
+      }
 
       return newStats;
     } catch (error) {
@@ -142,90 +168,178 @@ export default function DashboardScreen() {
     postInitialGoalTweet();
   }, [user]);
 
-  // GitHub push検出と通知・統計更新
+  // GitHub push検出と統計更新（統計更新と通知を分離）
   useEffect(() => {
     const checkGitHubPush = async () => {
-      if (!user || pushCheckAttempted.current) {
+      console.log('=== checkGitHubPush START ===');
+
+      if (!user) {
+        console.log('checkGitHubPush: user is null, skipping');
         return;
       }
 
+      console.log('checkGitHubPush: user.githubLinked =', user.githubLinked);
+      console.log('checkGitHubPush: user.githubUsername =', user.githubUsername);
+      console.log('checkGitHubPush: user.githubAccessToken exists =', !!user.githubAccessToken);
+
       // GitHub連携がない場合はスキップ
       if (!user.githubLinked || !user.githubUsername || !user.githubAccessToken) {
+        console.log('checkGitHubPush: GitHub not linked, skipping');
+        return;
+      }
+
+      // 既に今日の統計が更新済みかチェック
+      const todayString = getTodayDateString();
+      const lastStudyDateString = timestampToDateString(user.stats.lastStudyDate);
+
+      console.log('checkGitHubPush: todayString =', todayString);
+      console.log('checkGitHubPush: lastStudyDateString =', lastStudyDateString);
+
+      // 今日既に更新済みの場合はスキップ
+      if (lastStudyDateString === todayString) {
+        console.log('checkGitHubPush: already updated today, skipping');
+        pushCheckAttempted.current = true;
+        return;
+      }
+
+      // 一度チェック済みの場合はスキップ（ただし統計未更新の場合は再チェック）
+      if (pushCheckAttempted.current) {
+        console.log('checkGitHubPush: already attempted, skipping');
         return;
       }
 
       pushCheckAttempted.current = true;
+      console.log('checkGitHubPush: calling hasPushedToday...');
 
       try {
-        // 今日の日付キー（通知済みかどうかの判定用）
-        const today = new Date();
-        const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-        const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
-
-        // 既に今日通知済みかチェック
-        const alreadyNotified = await AsyncStorage.getItem(storageKey);
-        if (alreadyNotified) {
-          return;
-        }
-
         // GitHub pushをチェック
         const pushed = await hasPushedToday(user.githubUsername, user.githubAccessToken);
 
+        console.log('checkGitHubPush: pushed =', pushed);
+
         if (pushed) {
+          console.log('checkGitHubPush: push detected, updating stats...');
           // 統計を更新
           const newStats = await updateStatsOnPush();
 
-          // 通知済みフラグを保存
-          await AsyncStorage.setItem(storageKey, 'true');
+          console.log('checkGitHubPush: newStats =', newStats ? JSON.stringify(newStats) : 'null');
 
-          // 連続日数を取得（更新後の値を使用）
-          const streakDays = newStats?.currentStreak || (user.stats.currentStreak || 0) + 1;
+          if (newStats) {
+            // 今日の日付キー（通知済みかどうかの判定用）
+            const today = new Date();
+            const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+            const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
 
-          // 達成通知を表示
-          Alert.alert(
-            'お疲れ様でした！🎉',
-            streakDays > 1
-              ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
-              : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
-          );
+            // 既に今日通知済みかチェック
+            const alreadyNotified = await AsyncStorage.getItem(storageKey);
 
-          // ダッシュボードデータをリフレッシュ
-          refresh();
+            console.log('checkGitHubPush: alreadyNotified =', alreadyNotified);
+
+            if (!alreadyNotified) {
+              // 通知済みフラグを保存
+              await AsyncStorage.setItem(storageKey, 'true');
+
+              // 連続日数を取得（更新後の値を使用）
+              const streakDays = newStats.currentStreak || 1;
+
+              // 達成通知を表示
+              Alert.alert(
+                'お疲れ様でした！🎉',
+                streakDays > 1
+                  ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
+                  : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
+              );
+            }
+
+            // ダッシュボードデータをリフレッシュ
+            refresh();
+          }
+        } else {
+          console.log('checkGitHubPush: no push detected today');
         }
       } catch (error) {
         console.error('GitHub push check error:', error);
+        // エラー時は次回再チェックできるようにリセット
+        pushCheckAttempted.current = false;
       }
+
+      console.log('=== checkGitHubPush END ===');
     };
 
     checkGitHubPush();
   }, [user, updateStatsOnPush, refresh]);
 
   const onRefresh = useCallback(async () => {
+    console.log('=== onRefresh START ===');
     setRefreshing(true);
+
+    // Firestoreから最新のユーザーデータを取得
+    let latestStats = user?.stats;
+    if (user) {
+      try {
+        console.log('onRefresh: fetching latest user data from Firestore...');
+        const userRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          latestStats = userData.stats;
+          console.log('onRefresh: latest stats =', JSON.stringify(latestStats, null, 2));
+          // ローカル状態を最新データで更新
+          updateUser({
+            stats: userData.stats,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to refresh user data:', error);
+      }
+    }
+
     await refresh();
 
-    // リフレッシュ時にGitHub pushもチェック
+    // リフレッシュ時にGitHub pushもチェック（統計が未更新の場合のみ）
     if (user?.githubLinked && user?.githubUsername && user?.githubAccessToken) {
       try {
-        const today = new Date();
-        const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-        const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
+        const todayString = getTodayDateString();
+        const lastStudyDateString = latestStats?.lastStudyDate
+          ? timestampToDateString(latestStats.lastStudyDate)
+          : null;
 
-        const alreadyNotified = await AsyncStorage.getItem(storageKey);
-        if (!alreadyNotified) {
-          const pushed = await hasPushedToday(user.githubUsername, user.githubAccessToken);
-          if (pushed) {
-            // 統計を更新
-            const newStats = await updateStatsOnPush();
+        console.log('onRefresh: todayString =', todayString);
+        console.log('onRefresh: lastStudyDateString =', lastStudyDateString);
 
-            await AsyncStorage.setItem(storageKey, 'true');
-            const streakDays = newStats?.currentStreak || (user.stats.currentStreak || 0) + 1;
-            Alert.alert(
-              'お疲れ様でした！🎉',
-              streakDays > 1
-                ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
-                : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
-            );
+        // 今日既に更新済みの場合はスキップ
+        if (lastStudyDateString === todayString) {
+          console.log('onRefresh: already updated today, skipping');
+          setRefreshing(false);
+          return;
+        }
+
+        console.log('onRefresh: checking GitHub push...');
+        const pushed = await hasPushedToday(user.githubUsername, user.githubAccessToken);
+        console.log('onRefresh: pushed =', pushed);
+
+        if (pushed) {
+          // 統計を更新
+          const newStats = await updateStatsOnPush();
+
+          console.log('onRefresh: newStats =', newStats ? JSON.stringify(newStats) : 'null');
+
+          if (newStats) {
+            const today = new Date();
+            const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+            const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
+
+            const alreadyNotified = await AsyncStorage.getItem(storageKey);
+            if (!alreadyNotified) {
+              await AsyncStorage.setItem(storageKey, 'true');
+              const streakDays = newStats.currentStreak || 1;
+              Alert.alert(
+                'お疲れ様でした！🎉',
+                streakDays > 1
+                  ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
+                  : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
+              );
+            }
           }
         }
       } catch (error) {
@@ -234,7 +348,8 @@ export default function DashboardScreen() {
     }
 
     setRefreshing(false);
-  }, [refresh, user, updateStatsOnPush]);
+    console.log('=== onRefresh END ===');
+  }, [refresh, user, updateStatsOnPush, updateUser]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

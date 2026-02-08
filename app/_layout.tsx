@@ -145,9 +145,9 @@ const loadingStyles = StyleSheet.create({
     alignItems: 'center',
   },
   iconContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 40,
   },
   icon: {
     width: 200,
@@ -155,11 +155,12 @@ const loadingStyles = StyleSheet.create({
     borderRadius: 20,
   },
   animationContainer: {
-    height: 100,
-    marginBottom: 100,
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   animation: {
-    width: 150,
-    height: 100,
+    width: 300,
+    height: 200,
   },
 });
