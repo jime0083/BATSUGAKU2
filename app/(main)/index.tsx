@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Alert, AppState, AppStateStatus } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,6 +8,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { useDashboardData } from '../../src/hooks/useDashboardData';
 import { shouldPostGoalTweet, postGoalTweet } from '../../src/lib/goalTweetService';
 import { hasPushedToday } from '../../src/lib/github';
+import { sendPushDetectedNotification } from '../../src/lib/notificationService';
 import { UserStats } from '../../src/types';
 
 // 統一カラーパレット
@@ -61,6 +62,8 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const goalTweetAttempted = useRef(false);
   const pushCheckAttempted = useRef(false);
+  const appState = useRef(AppState.currentState);
+  const lastCheckTime = useRef<number>(0);
 
   // GitHub push時に統計を更新する関数
   const updateStatsOnPush = useCallback(async (): Promise<Partial<UserStats> | null> => {
@@ -202,9 +205,16 @@ export default function DashboardScreen() {
         return;
       }
 
-      // 一度チェック済みの場合はスキップ（ただし統計未更新の場合は再チェック）
+      // 統計が未更新の場合はpushCheckAttemptedをリセットして再チェック
+      // これにより、pushした後にアプリを開いても確実にチェックされる
+      if (pushCheckAttempted.current && lastStudyDateString !== todayString) {
+        console.log('checkGitHubPush: stats not updated yet, resetting flag for recheck');
+        pushCheckAttempted.current = false;
+      }
+
+      // 一度チェック済みの場合はスキップ
       if (pushCheckAttempted.current) {
-        console.log('checkGitHubPush: already attempted, skipping');
+        console.log('checkGitHubPush: already attempted and up to date, skipping');
         return;
       }
 
@@ -242,9 +252,13 @@ export default function DashboardScreen() {
               // 連続日数を取得（更新後の値を使用）
               const streakDays = newStats.currentStreak || 1;
 
-              // 達成通知を表示
+              // iPhoneプッシュ通知を送信
+              await sendPushDetectedNotification(streakDays);
+              console.log('checkGitHubPush: push notification sent');
+
+              // アプリ内アラートも表示
               Alert.alert(
-                'お疲れ様でした！🎉',
+                'お疲れ様でした！',
                 streakDays > 1
                   ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
                   : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
@@ -267,6 +281,87 @@ export default function DashboardScreen() {
     };
 
     checkGitHubPush();
+  }, [user, updateStatsOnPush, refresh]);
+
+  // アプリがフォアグラウンドに復帰したときにpushをチェック
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      // バックグラウンドからフォアグラウンドに復帰した場合
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        console.log('=== App became active, checking GitHub push ===');
+
+        // 最後のチェックから30秒以上経過している場合のみチェック
+        const now = Date.now();
+        if (now - lastCheckTime.current < 30000) {
+          console.log('Skipping check: too soon since last check');
+          appState.current = nextAppState;
+          return;
+        }
+
+        if (!user?.githubLinked || !user?.githubUsername || !user?.githubAccessToken) {
+          appState.current = nextAppState;
+          return;
+        }
+
+        // 今日既に統計更新済みかチェック
+        const todayString = getTodayDateString();
+        const lastStudyDateString = timestampToDateString(user.stats.lastStudyDate);
+
+        if (lastStudyDateString === todayString) {
+          console.log('Already updated today, skipping');
+          appState.current = nextAppState;
+          return;
+        }
+
+        lastCheckTime.current = now;
+        pushCheckAttempted.current = false; // フラグをリセットして再チェックを許可
+
+        try {
+          console.log('Checking GitHub push on app resume...');
+          const pushed = await hasPushedToday(user.githubUsername, user.githubAccessToken);
+
+          if (pushed) {
+            console.log('Push detected on app resume, updating stats...');
+            const newStats = await updateStatsOnPush();
+
+            if (newStats) {
+              const today = new Date();
+              const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+              const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
+
+              const alreadyNotified = await AsyncStorage.getItem(storageKey);
+              if (!alreadyNotified) {
+                await AsyncStorage.setItem(storageKey, 'true');
+                const streakDays = newStats.currentStreak || 1;
+
+                // iPhoneプッシュ通知を送信
+                await sendPushDetectedNotification(streakDays);
+
+                // アプリ内アラートも表示
+                Alert.alert(
+                  'お疲れ様でした！',
+                  streakDays > 1
+                    ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
+                    : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
+                );
+              }
+
+              refresh();
+            }
+          }
+        } catch (error) {
+          console.error('GitHub push check on resume error:', error);
+        }
+      }
+
+      appState.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
   }, [user, updateStatsOnPush, refresh]);
 
   const onRefresh = useCallback(async () => {
@@ -333,8 +428,14 @@ export default function DashboardScreen() {
             if (!alreadyNotified) {
               await AsyncStorage.setItem(storageKey, 'true');
               const streakDays = newStats.currentStreak || 1;
+
+              // iPhoneプッシュ通知を送信
+              await sendPushDetectedNotification(streakDays);
+              console.log('onRefresh: push notification sent');
+
+              // アプリ内アラートも表示
               Alert.alert(
-                'お疲れ様でした！🎉',
+                'お疲れ様でした！',
                 streakDays > 1
                   ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
                   : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
