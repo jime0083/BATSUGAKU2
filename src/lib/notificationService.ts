@@ -122,6 +122,8 @@ export async function scheduleReminderNotification23(): Promise<string | null> {
       trigger.setDate(trigger.getDate() + 1);
     }
 
+    console.log('Scheduling 23:00 reminder for:', trigger.toISOString());
+
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
         title: NOTIFICATION_MESSAGES.reminder23.title,
@@ -140,6 +142,7 @@ export async function scheduleReminderNotification23(): Promise<string | null> {
       identifier: NOTIFICATION_IDENTIFIERS.REMINDER_23,
     });
 
+    console.log('23:00 reminder scheduled with identifier:', identifier);
     return identifier;
   } catch (error) {
     console.error('Failed to schedule 23:00 reminder:', error);
@@ -149,11 +152,24 @@ export async function scheduleReminderNotification23(): Promise<string | null> {
 
 /**
  * 23:30最終警告通知をスケジュール
+ * iOSではDAILYトリガーが動作しないケースがあるため、DATEトリガーを使用
  */
 export async function scheduleReminderNotification2330(): Promise<string | null> {
   try {
     // 既存の通知をキャンセル
     await cancelScheduledNotification(NOTIFICATION_IDENTIFIERS.REMINDER_2330);
+
+    // 今日の23:30を計算
+    const now = new Date();
+    const triggerDate = new Date();
+    triggerDate.setHours(23, 30, 0, 0);
+
+    // 既に23:30を過ぎている場合は明日
+    if (triggerDate <= now) {
+      triggerDate.setDate(triggerDate.getDate() + 1);
+    }
+
+    console.log('Scheduling 23:30 reminder for:', triggerDate.toISOString());
 
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
@@ -166,13 +182,13 @@ export async function scheduleReminderNotification2330(): Promise<string | null>
         }),
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: 23,
-        minute: 30,
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: triggerDate,
       },
       identifier: NOTIFICATION_IDENTIFIERS.REMINDER_2330,
     });
 
+    console.log('23:30 reminder scheduled with identifier:', identifier);
     return identifier;
   } catch (error) {
     console.error('Failed to schedule 23:30 reminder:', error);
@@ -184,8 +200,25 @@ export async function scheduleReminderNotification2330(): Promise<string | null>
  * 全てのリマインダー通知をスケジュール
  */
 export async function scheduleAllReminders(): Promise<void> {
-  await scheduleReminderNotification23();
-  await scheduleReminderNotification2330();
+  console.log('Scheduling all reminders...');
+
+  // 既存の通知を全てキャンセル
+  await cancelAllReminders();
+
+  // 23:00リマインダーをスケジュール
+  const result23 = await scheduleReminderNotification23();
+  console.log('23:00 reminder result:', result23);
+
+  // 23:30リマインダーをスケジュール
+  const result2330 = await scheduleReminderNotification2330();
+  console.log('23:30 reminder result:', result2330);
+
+  // スケジュール結果を確認
+  const scheduled = await getScheduledNotifications();
+  console.log(
+    'All scheduled notifications:',
+    scheduled.map((n) => ({ identifier: n.identifier, trigger: n.trigger }))
+  );
 }
 
 /**

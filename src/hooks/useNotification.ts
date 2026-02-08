@@ -104,12 +104,19 @@ export function useNotification(user: User | null): UseNotificationReturn {
     if (!user) return;
 
     // フォアグラウンドで通知を受信した時
-    notificationListener.current = addNotificationReceivedListener((notification) => {
+    notificationListener.current = addNotificationReceivedListener(async (notification) => {
       console.log('Notification received:', notification);
+      const data = notification.request.content.data;
+
+      // 23:30リマインダー通知を受信したら、翌日の通知を再スケジュール
+      if (data?.type === 'reminder' && data?.time === '23:30') {
+        console.log('Re-scheduling 23:30 reminder for tomorrow');
+        await scheduleAllReminders();
+      }
     });
 
     // 通知をタップした時
-    responseListener.current = addNotificationResponseReceivedListener((response) => {
+    responseListener.current = addNotificationResponseReceivedListener(async (response) => {
       console.log('Notification response:', response);
       const data = response.notification.request.content.data;
 
@@ -117,6 +124,10 @@ export function useNotification(user: User | null): UseNotificationReturn {
       if (data?.type === 'reminder') {
         // リマインダー通知 → ダッシュボードへ
         console.log('Reminder notification tapped');
+        // 翌日の通知を再スケジュール
+        if (data?.time === '23:30') {
+          await scheduleAllReminders();
+        }
       } else if (data?.type === 'achievement') {
         // 達成通知 → バッジ画面へ
         console.log('Achievement notification tapped');
