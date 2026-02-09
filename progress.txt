@@ -2,7 +2,7 @@
 BATSUGAKU (バツガク) - 実装進捗管理
 ================================================================================
 
-最終更新: 2026-02-06
+最終更新: 2026-02-09
 設定: Everything Claude Code (cogsec) 使用
 
 ================================================================================
@@ -390,6 +390,30 @@ BATSUGAKU (バツガク) - 実装進捗管理
     - [x] 14.3.3 App Store/Google Play解約導線             完了: 2026-02-04
     - [x] 14.3.4 設定画面からの導線追加                     完了: 2026-02-04
 
+■ Phase 16: 通知機能強化
+--------------------------------------------------------------------------------
+[x] 16.1 23:30最終警告通知修正                          完了: 2026-02-09
+    - [x] DAILYトリガーからDATEトリガーに変更（iOS対応）完了: 2026-02-09
+    - [x] 通知受信後の翌日再スケジュール機能追加      完了: 2026-02-09
+
+[x] 16.2 GitHub push検出時のiPhone通知                  完了: 2026-02-09
+    - [x] sendPushDetectedNotification呼び出し追加    完了: 2026-02-09
+    - [x] AppState監視でアプリ復帰時の再チェック追加  完了: 2026-02-09
+    - [x] pushCheckAttemptedロジック改善              完了: 2026-02-09
+
+[x] 16.3 GitHub Webhookリアルタイム通知                 完了: 2026-02-09
+    - [x] functions/src/pushNotification.ts作成       完了: 2026-02-09
+          - Expo Push Notification送信機能
+    - [x] functions/src/githubWebhook.ts作成          完了: 2026-02-09
+          - GitHub Webhook署名検証
+          - ユーザー検索・統計更新
+          - プッシュ通知送信
+    - [x] functions/src/index.tsにエンドポイント追加  完了: 2026-02-09
+    - [x] GITHUB_WEBHOOK_SECRETシークレット設定       完了: 2026-02-09
+    - [x] Cloud Functionsデプロイ                     完了: 2026-02-09
+          - URL: https://us-central1-batsugaku.cloudfunctions.net/githubWebhook
+    - [x] GitHubリポジトリにWebhook設定（手動作業）   完了: 2026-02-09
+
 ■ Phase 15: UI改善・最終調整
 --------------------------------------------------------------------------------
 [x] 15.1 下部タブメニュー修正                              完了: 2026-02-06
@@ -478,6 +502,8 @@ TypeScript型チェック: エラーなし
 - functions/src/twitter.ts           X API連携（Functions用）
 - functions/src/github.ts            GitHub API連携（Functions用）
 - functions/src/receiptValidation.ts レシート検証（iOS/Android）
+- functions/src/githubWebhook.ts     GitHub Webhookリアルタイム通知
+- functions/src/pushNotification.ts  Expo Push Notification送信
 
 【Firebase設定】
 - firebase.json                      Firebase設定
@@ -534,6 +560,7 @@ TypeScript型チェック: エラーなし
 - Phase 14.2: 目標変更画面
 - Phase 14.3: サブスク解約画面
 - Phase 15.1: 下部タブメニュー修正
+- Phase 16: 通知機能強化（23:30通知修正、GitHub Webhookリアルタイム通知）
 
 ※ 外部作業（manual-work.txt）は完了済み
 ※ レガシーコード削除（任意）:

@@ -5,7 +5,7 @@ BATSUGAKU (バツガク) - 手動作業リスト
 このファイルには、開発者が手動で行う必要がある外部サービスの設定作業を
 記載しています。コード実装では対応できない作業です。
 
-最終更新: 2026-01-24
+最終更新: 2026-02-09
 
 ================================================================================
 更新方法
@@ -23,6 +23,7 @@ BATSUGAKU (バツガク) - 手動作業リスト
 更新履歴
 ================================================================================
 
+- 2026-02-09: セクション8追加（GitHub Webhookリアルタイム通知）
 - 2026-01-24: 5.5 ビルド時に設定に変更、1.2完了確認
 - 2026-01-24: 7.1-7.4 完了（本番リリース前作業完了）
 - 2026-01-24: 6.1 完了（環境変数設定完了）
@@ -254,6 +255,45 @@ Cloud Functionsを使用するために必須:
 [x] プッシュ通知資格情報設定（セクション5.5）← ビルド時に自動設定
 
 ================================================================================
+8. GitHub Webhook設定（リアルタイムpush通知）
+================================================================================
+
+【優先度: 高】pushした際に即座に通知を送るために必須
+
+[x] 8.1 Firebase Cloud Functionsにシークレット設定    ← 完了: 2026-02-09
+   ```bash
+   # GitHub Webhook検証用シークレット
+   firebase functions:secrets:set GITHUB_WEBHOOK_SECRET
+   # 任意の文字列（32文字以上推奨）を入力
+   # 例: openssl rand -hex 32 で生成可能
+   ```
+   - Secret: c14c2e64509922e3c6f7d3e36cbab4a60dc5a4d76d816c6e61e26aaefb2caf11
+
+[x] 8.2 Cloud Functions 再デプロイ                     ← 完了: 2026-02-09
+   ```bash
+   cd functions
+   npm run build
+   firebase deploy --only functions:githubWebhook
+   ```
+   - Webhook URL: https://us-central1-batsugaku.cloudfunctions.net/githubWebhook
+
+[x] 8.3 GitHubリポジトリにWebhook設定                  ← 完了: 2026-02-09
+   - BATSUGAKU2リポジトリに設定完了
+   - Payload URL: https://us-central1-batsugaku.cloudfunctions.net/githubWebhook
+   - Content type: application/json
+   - Secret: 設定済み
+   - Events: Just the push event
+   - Active: 有効
+
+   【複数リポジトリの場合】
+   - 学習に使用する全てのリポジトリに同じ設定が必要
+   - Organization Webhookを使うと一括設定可能
+
+□ 8.4 アプリ内にWebhook設定ガイドを追加（オプション）
+   - 設定画面にWebhook設定方法のリンクを追加
+   - または自動設定機能を実装（GitHub APIで）
+
+================================================================================
 参考リンク
 ================================================================================
 
@@ -267,5 +307,6 @@ Cloud Functionsを使用するために必須:
 - GitHub Developer: https://github.com/settings/developers
 - Expo: https://expo.dev/
 - EAS Build: https://docs.expo.dev/build/introduction/
+- GitHub Webhooks: https://docs.github.com/en/webhooks
 
 ================================================================================

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSubscriptionStatus = exports.verifyAndroidReceipt = exports.verifyIosReceipt = exports.getMonthlyStats = exports.getDailyStats = exports.checkSingleUser = exports.manualDailyCheck = exports.dailyAutoCheck = void 0;
+exports.githubWebhook = exports.getSubscriptionStatus = exports.verifyAndroidReceipt = exports.verifyIosReceipt = exports.getMonthlyStats = exports.getDailyStats = exports.checkSingleUser = exports.manualDailyCheck = exports.dailyAutoCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const https_1 = require("firebase-functions/v2/https");
@@ -41,12 +41,14 @@ const params_1 = require("firebase-functions/params");
 const dailyCheck_1 = require("./dailyCheck");
 const twitter_1 = require("./twitter");
 const receiptValidation_1 = require("./receiptValidation");
+const githubWebhook_1 = require("./githubWebhook");
 // Firebase Admin初期化
 admin.initializeApp();
 // 環境変数（Firebase Functions secrets）
 const xClientId = (0, params_1.defineSecret)('X_CLIENT_ID');
 const xClientSecret = (0, params_1.defineSecret)('X_CLIENT_SECRET');
 const adminXAccessToken = (0, params_1.defineSecret)('ADMIN_X_ACCESS_TOKEN');
+const githubWebhookSecret = (0, params_1.defineSecret)('GITHUB_WEBHOOK_SECRET');
 /**
  * 日次自動チェック（毎日0:00 JST実行）
  *
@@ -341,5 +343,68 @@ exports.getSubscriptionStatus = (0, https_1.onCall)({
         expirationDate: (expiresAt === null || expiresAt === void 0 ? void 0 : expiresAt.toISOString()) || null,
         isExpired,
     };
+});
+/**
+ * GitHub Webhook エンドポイント
+ *
+ * GitHubからのpushイベントを受け取り、
+ * 該当ユーザーにプッシュ通知を送信し、統計を更新する
+ *
+ * 設定方法:
+ * 1. GitHubリポジトリの Settings > Webhooks で新規作成
+ * 2. Payload URL: https://<region>-<project-id>.cloudfunctions.net/githubWebhook
+ * 3. Content type: application/json
+ * 4. Secret: GITHUB_WEBHOOK_SECRET と同じ値
+ * 5. Events: "Just the push event" を選択
+ */
+exports.githubWebhook = (0, https_1.onRequest)({
+    memory: '256MiB',
+    timeoutSeconds: 60,
+    secrets: [githubWebhookSecret],
+    cors: false,
+}, async (req, res) => {
+    var _a, _b, _c;
+    // POSTメソッドのみ許可
+    if (req.method !== 'POST') {
+        res.status(405).send('Method Not Allowed');
+        return;
+    }
+    // イベントタイプをチェック
+    const event = req.headers['x-github-event'];
+    if (event !== 'push') {
+        console.log(`Ignoring non-push event: ${event}`);
+        res.status(200).json({ message: `Ignored event: ${event}` });
+        return;
+    }
+    // 署名を検証
+    const signature = req.headers['x-hub-signature-256'];
+    const rawBody = JSON.stringify(req.body);
+    if (!(0, githubWebhook_1.verifyGitHubSignature)(rawBody, signature, githubWebhookSecret.value())) {
+        console.error('Invalid GitHub webhook signature');
+        res.status(401).send('Invalid signature');
+        return;
+    }
+    try {
+        const payload = req.body;
+        const senderUsername = (_a = payload.sender) === null || _a === void 0 ? void 0 : _a.login;
+        if (!senderUsername) {
+            console.error('No sender username in payload');
+            res.status(400).json({ error: 'No sender username' });
+            return;
+        }
+        console.log('Received GitHub push from:', senderUsername);
+        console.log('Repository:', (_b = payload.repository) === null || _b === void 0 ? void 0 : _b.full_name);
+        console.log('Commits:', ((_c = payload.commits) === null || _c === void 0 ? void 0 : _c.length) || 0);
+        // pushイベントを処理
+        const result = await (0, githubWebhook_1.handleGitHubPush)(senderUsername);
+        console.log('GitHub push handled:', result);
+        res.status(200).json(result);
+    }
+    catch (error) {
+        console.error('GitHub webhook error:', error);
+        res.status(500).json({
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
 });
 //# sourceMappingURL=index.js.map
