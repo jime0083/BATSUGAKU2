@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { BADGES } from '../../src/constants';
@@ -14,11 +14,47 @@ const COLORS = {
   success: '#4CAF50',
 };
 
+// バッジ画像のマッピング（React Nativeでは動的requireが使えないため）
+const BADGE_IMAGES: { [key: string]: ImageSourcePropType } = {
+  // 連続学習日数バッジ
+  '2-3.png': require('../../assets/images/2-3.png'),
+  '2-5.png': require('../../assets/images/2-5.png'),
+  '2-10.png': require('../../assets/images/2-10.png'),
+  '2-15.png': require('../../assets/images/2-15.png'),
+  '2-20.png': require('../../assets/images/2-20.png'),
+  '2-25.png': require('../../assets/images/2-25.png'),
+  '2-30.png': require('../../assets/images/2-30.png'),
+  '2-35.png': require('../../assets/images/2-35.png'),
+  '2-40.png': require('../../assets/images/2-40.png'),
+  '2-50.png': require('../../assets/images/2-50.png'),
+  // 累計学習日数バッジ
+  '1-5.png': require('../../assets/images/1-5.png'),
+  '1-10.png': require('../../assets/images/1-10.png'),
+  '1-20.png': require('../../assets/images/1-20.png'),
+  '1-30.png': require('../../assets/images/1-30.png'),
+  '1-40.png': require('../../assets/images/1-40.png'),
+  '1-50.png': require('../../assets/images/1-50.png'),
+  '1-60.png': require('../../assets/images/1-60.png'),
+  '1-70.png': require('../../assets/images/1-70.png'),
+  '1-80.png': require('../../assets/images/1-80.png'),
+  '1-90.png': require('../../assets/images/1-90.png'),
+  '1-100.png': require('../../assets/images/1-100.png'),
+  // 累計サボり日数バッジ
+  '3-d.png': require('../../assets/images/3-d.png'),
+  '3-3.png': require('../../assets/images/3-3.png'),
+  '3-5.png': require('../../assets/images/3-5.png'),
+  '3-10.png': require('../../assets/images/3-10.png'),
+  '3-15.png': require('../../assets/images/3-15.png'),
+  '3-20.png': require('../../assets/images/3-20.png'),
+  '3-25.png': require('../../assets/images/3-25.png'),
+  '3-30.png': require('../../assets/images/3-30.png'),
+};
+
 interface BadgeItem {
   id: string;
   name: string;
   requirement: number;
-  icon: string;
+  image: string;
   category: string;
 }
 
@@ -32,18 +68,6 @@ export default function BadgesScreen() {
     ...BADGES.totalStudy.map((b) => ({ ...b, category: 'totalStudy' })),
     ...BADGES.totalSkip.map((b) => ({ ...b, category: 'totalSkip' })),
   ];
-
-  const getIconEmoji = (icon: string) => {
-    const icons: { [key: string]: string } = {
-      flame: '🔥',
-      fire: '🔥',
-      crown: '👑',
-      star: '⭐',
-      trophy: '🏆',
-      skull: '💀',
-    };
-    return icons[icon] || '🏅';
-  };
 
   const getCategoryTitle = (category: string) => {
     switch (category) {
@@ -60,17 +84,19 @@ export default function BadgesScreen() {
 
   const renderBadge = ({ item }: { item: BadgeItem }) => {
     const isEarned = userBadges.includes(item.id);
+    const imageSource = BADGE_IMAGES[item.image];
 
     return (
       <View style={[styles.badgeCard, !isEarned && styles.badgeCardLocked]}>
-        <Text style={[styles.badgeIcon, !isEarned && styles.badgeIconLocked]}>
-          {getIconEmoji(item.icon)}
-        </Text>
+        {imageSource && (
+          <Image
+            source={imageSource}
+            style={[styles.badgeImage, !isEarned && styles.badgeImageLocked]}
+            resizeMode="contain"
+          />
+        )}
         <Text style={[styles.badgeName, !isEarned && styles.badgeNameLocked]}>
           {item.name}
-        </Text>
-        <Text style={styles.badgeRequirement}>
-          {item.requirement}日達成
         </Text>
         {isEarned && (
           <View style={styles.earnedBadge}>
@@ -174,11 +200,12 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     opacity: 0.5,
   },
-  badgeIcon: {
-    fontSize: 32,
+  badgeImage: {
+    width: 48,
+    height: 48,
     marginBottom: 8,
   },
-  badgeIconLocked: {
+  badgeImageLocked: {
     opacity: 0.3,
   },
   badgeName: {

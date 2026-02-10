@@ -504,29 +504,25 @@ export default function DashboardScreen() {
             <View style={styles.weekDays}>
               {weekDays.map((day, index) => (
                 <View key={index} style={styles.dayColumn}>
-                  <Text style={[styles.dayName, day.isToday && styles.todayText]}>
+                  <Text style={styles.dayName}>
                     {day.name}
                   </Text>
                   <View
                     style={[
                       styles.dayCircle,
                       day.hasStudied === true && styles.dayCircleStudied,
-                      day.hasStudied === false && styles.dayCircleSkipped,
-                      day.isToday && styles.dayCircleToday,
+                      day.isToday && !day.hasStudied && styles.dayCircleToday,
                     ]}
                   >
                     <Text
                       style={[
                         styles.dayDate,
                         day.hasStudied === true && styles.dayDateStudied,
-                        day.hasStudied === false && styles.dayDateSkipped,
                       ]}
                     >
                       {day.date}
                     </Text>
                   </View>
-                  {day.hasStudied === true && <Text style={styles.checkMark}>✓</Text>}
-                  {day.hasStudied === false && <Text style={styles.skipMark}>✗</Text>}
                 </View>
               ))}
             </View>
@@ -675,19 +671,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
   dayCircleStudied: {
-    backgroundColor: COLORS.success,
-    borderColor: COLORS.success,
-  },
-  dayCircleSkipped: {
-    backgroundColor: COLORS.error,
-    borderColor: COLORS.error,
+    backgroundColor: COLORS.accent,
   },
   dayCircleToday: {
     borderColor: COLORS.accent,
@@ -699,19 +688,6 @@ const styles = StyleSheet.create({
   },
   dayDateStudied: {
     color: '#FFFFFF',
-  },
-  dayDateSkipped: {
-    color: '#FFFFFF',
-  },
-  checkMark: {
-    fontSize: 12,
-    color: COLORS.success,
-    marginTop: 4,
-  },
-  skipMark: {
-    fontSize: 12,
-    color: COLORS.error,
-    marginTop: 4,
   },
   loadingContainer: {
     height: 80,
