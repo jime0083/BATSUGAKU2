@@ -7,8 +7,10 @@ import { db } from '../../src/lib/firebase';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useDashboardData } from '../../src/hooks/useDashboardData';
 import { shouldPostGoalTweet, postGoalTweet } from '../../src/lib/goalTweetService';
-import { hasPushedToday } from '../../src/lib/github';
+import { hasPushedToday, fetchTodayPushEvents, countTotalCommits } from '../../src/lib/github';
 import { sendPushDetectedNotification } from '../../src/lib/notificationService';
+import { saveDailyLog, formatDateString, updateUserBadges } from '../../src/lib/firestoreService';
+import { checkEarnableBadges } from '../../src/lib/dailyCheck';
 import { UserStats } from '../../src/types';
 
 // 統一カラーパレット
@@ -56,12 +58,56 @@ const timestampToDateString = (timestamp: Timestamp | Date | null | undefined): 
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
+// 既存の統計に基づいてバッジを計算する関数
+const computeBadgesFromStats = (
+  currentStreak: number,
+  longestStreak: number,
+  totalStudyDays: number,
+  totalSkipDays: number,
+  existingBadges: string[]
+): string[] => {
+  const badgesToAdd: string[] = [];
+  const existingSet = new Set(existingBadges);
+
+  // 連続学習日数バッジ（現在のストリークまたは最長記録のいずれか大きい方で判定）
+  const maxStreak = Math.max(currentStreak, longestStreak);
+  const streakThresholds = [3, 5, 10, 15, 20, 25, 30, 35, 40, 50];
+  for (const threshold of streakThresholds) {
+    const badgeId = `streak_${threshold}`;
+    if (maxStreak >= threshold && !existingSet.has(badgeId)) {
+      badgesToAdd.push(badgeId);
+    }
+  }
+
+  // 累計学習日数バッジ
+  const totalStudyThresholds = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+  for (const threshold of totalStudyThresholds) {
+    const badgeId = `total_${threshold}`;
+    if (totalStudyDays >= threshold && !existingSet.has(badgeId)) {
+      badgesToAdd.push(badgeId);
+    }
+  }
+
+  // 累計サボり日数バッジ
+  const totalSkipThresholds = [1, 3, 5, 10, 15, 20, 25, 30];
+  for (const threshold of totalSkipThresholds) {
+    const badgeId = `skip_${threshold}`;
+    if (totalSkipDays >= threshold && !existingSet.has(badgeId)) {
+      badgesToAdd.push(badgeId);
+    }
+  }
+
+  return badgesToAdd;
+};
+
 export default function DashboardScreen() {
   const { user, updateUser } = useAuth();
   const { weekDays, loading, refresh } = useDashboardData(user?.uid);
   const [refreshing, setRefreshing] = useState(false);
   const goalTweetAttempted = useRef(false);
   const pushCheckAttempted = useRef(false);
+  const badgeSyncAttempted = useRef(false);
+  const dailyLogSyncAttempted = useRef(false);
   const appState = useRef(AppState.currentState);
   const lastCheckTime = useRef<number>(0);
 
@@ -117,6 +163,36 @@ export default function DashboardScreen() {
     console.log('updateStatsOnPush: newStats =', JSON.stringify(newStats, null, 2));
 
     try {
+      // push回数を取得
+      let pushCount = 0;
+      if (user.githubUsername && user.githubAccessToken) {
+        try {
+          const events = await fetchTodayPushEvents(user.githubUsername, user.githubAccessToken);
+          pushCount = countTotalCommits(events);
+        } catch (e) {
+          console.log('updateStatsOnPush: failed to get push count', e);
+        }
+      }
+
+      // DailyLogを作成（今週の学習カレンダーに反映させるため）
+      const dateString = formatDateString(today);
+      await saveDailyLog({
+        userId: user.uid,
+        date: dateString,
+        hasPushed: true,
+        pushCount,
+        pushedAt: Timestamp.fromDate(today),
+        skipped: false,
+        tweetedSkip: false,
+        tweetedStreak: false,
+        streakMilestone: null,
+      });
+      console.log('updateStatsOnPush: DailyLog created for', dateString);
+
+      // バッジをチェックして付与
+      const newBadges = checkEarnableBadges(user, newStreak, false);
+      console.log('updateStatsOnPush: newBadges =', newBadges);
+
       // Firestoreを更新
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
@@ -127,15 +203,22 @@ export default function DashboardScreen() {
         'stats.lastStudyDate': newStats.lastStudyDate,
       });
 
-      console.log('updateStatsOnPush: Firestore updated successfully');
+      console.log('updateStatsOnPush: Firestore stats updated successfully');
+
+      // 新しいバッジがあれば追加
+      if (newBadges.length > 0) {
+        await updateUserBadges(user.uid, newBadges);
+        console.log('updateStatsOnPush: badges updated');
+      }
 
       // Firestoreから最新データを再取得してローカル状態を更新
       const updatedDoc = await getDoc(userRef);
       if (updatedDoc.exists()) {
         const updatedData = updatedDoc.data();
-        console.log('updateStatsOnPush: fetched updated stats =', JSON.stringify(updatedData.stats, null, 2));
+        console.log('updateStatsOnPush: fetched updated data =', JSON.stringify(updatedData.stats, null, 2));
         updateUser({
           stats: updatedData.stats,
+          badges: updatedData.badges || [],
         });
       }
 
@@ -170,6 +253,130 @@ export default function DashboardScreen() {
 
     postInitialGoalTweet();
   }, [user]);
+
+  // 既存の統計に基づいてバッジを同期（初回ロード時）
+  useEffect(() => {
+    const syncBadges = async () => {
+      if (!user || badgeSyncAttempted.current) {
+        return;
+      }
+
+      // user.statsが存在するまで待つ
+      if (!user.stats) {
+        return;
+      }
+
+      badgeSyncAttempted.current = true;
+
+      const { currentStreak, longestStreak, totalStudyDays, totalSkipDays } = user.stats;
+      const existingBadges = user.badges || [];
+
+      // 統計に基づいて獲得すべきバッジを計算
+      const badgesToAdd = computeBadgesFromStats(
+        currentStreak || 0,
+        longestStreak || 0,
+        totalStudyDays || 0,
+        totalSkipDays || 0,
+        existingBadges
+      );
+
+      console.log('syncBadges: existing badges =', existingBadges);
+      console.log('syncBadges: badges to add =', badgesToAdd);
+
+      if (badgesToAdd.length > 0) {
+        try {
+          // Firestoreにバッジを追加
+          await updateUserBadges(user.uid, badgesToAdd);
+
+          // ローカル状態を更新
+          const userRef = doc(db, 'users', user.uid);
+          const updatedDoc = await getDoc(userRef);
+          if (updatedDoc.exists()) {
+            const updatedData = updatedDoc.data();
+            updateUser({
+              badges: updatedData.badges || [],
+            });
+          }
+
+          console.log('syncBadges: badges synced successfully');
+        } catch (error) {
+          console.error('syncBadges: failed to sync badges', error);
+        }
+      }
+    };
+
+    syncBadges();
+  }, [user, updateUser]);
+
+  // 連続学習日数に基づいてDailyLogを作成（カレンダー表示用）- 別のuseEffectで実行
+  useEffect(() => {
+    const syncDailyLogs = async () => {
+      if (!user || !user.stats || dailyLogSyncAttempted.current) {
+        return;
+      }
+
+      const { currentStreak, lastStudyDate } = user.stats;
+
+      // 連続学習がない場合はスキップ
+      if (!currentStreak || currentStreak === 0 || !lastStudyDate) {
+        console.log('syncDailyLogs: no streak or lastStudyDate, skipping');
+        return;
+      }
+
+      dailyLogSyncAttempted.current = true;
+
+      try {
+        // Timestamp型の場合はtoDate()を使い、それ以外はDateに変換
+        let lastStudyDateObj: Date;
+        if (typeof lastStudyDate === 'object' && 'toDate' in lastStudyDate && typeof lastStudyDate.toDate === 'function') {
+          lastStudyDateObj = lastStudyDate.toDate();
+        } else if (typeof lastStudyDate === 'object' && 'seconds' in lastStudyDate) {
+          lastStudyDateObj = new Date((lastStudyDate as { seconds: number }).seconds * 1000);
+        } else {
+          lastStudyDateObj = new Date(lastStudyDate as unknown as string | number);
+        }
+        console.log('syncDailyLogs: currentStreak =', currentStreak, 'lastStudyDate =', lastStudyDateObj);
+
+        // 連続学習日数分のDailyLogを作成（最大7日分）
+        const daysToCreate = Math.min(currentStreak, 7);
+        const createdDates: string[] = [];
+
+        for (let i = 0; i < daysToCreate; i++) {
+          const studyDate = new Date(lastStudyDateObj);
+          studyDate.setDate(studyDate.getDate() - i);
+          const dateString = formatDateString(studyDate);
+
+          // DailyLogを作成（既存の場合は上書き）
+          await saveDailyLog({
+            userId: user.uid,
+            date: dateString,
+            hasPushed: true,
+            pushCount: 1,
+            pushedAt: Timestamp.fromDate(studyDate),
+            skipped: false,
+            tweetedSkip: false,
+            tweetedStreak: false,
+            streakMilestone: null,
+          });
+          createdDates.push(dateString);
+        }
+        console.log('syncDailyLogs: created DailyLogs for', createdDates);
+
+        // Firestoreへの書き込みが確実に完了するよう少し待つ
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // カレンダーをリフレッシュ
+        await refresh();
+        console.log('syncDailyLogs: calendar refreshed');
+      } catch (error) {
+        console.error('syncDailyLogs: failed to sync daily logs', error);
+        // エラー時は次回再試行できるようにフラグをリセット
+        dailyLogSyncAttempted.current = false;
+      }
+    };
+
+    syncDailyLogs();
+  }, [user, refresh]);
 
   // GitHub push検出と統計更新（統計更新と通知を分離）
   useEffect(() => {
@@ -502,29 +709,56 @@ export default function DashboardScreen() {
             </View>
           ) : (
             <View style={styles.weekDays}>
-              {weekDays.map((day, index) => (
-                <View key={index} style={styles.dayColumn}>
-                  <Text style={styles.dayName}>
-                    {day.name}
-                  </Text>
-                  <View
-                    style={[
-                      styles.dayCircle,
-                      day.hasStudied === true && styles.dayCircleStudied,
-                      day.isToday && !day.hasStudied && styles.dayCircleToday,
-                    ]}
-                  >
-                    <Text
+              {weekDays.map((day, index) => {
+                // DailyLogからの学習状態、またはlastStudyDateによるフォールバック
+                let isStudied = day.hasStudied === true;
+
+                // DailyLogがない場合、lastStudyDateに基づいて連続学習日を判定
+                if (!isStudied && user?.stats.lastStudyDate && user?.stats.currentStreak > 0) {
+                  const lastStudyDateObj = user.stats.lastStudyDate.toDate
+                    ? user.stats.lastStudyDate.toDate()
+                    : typeof user.stats.lastStudyDate === 'object' && 'seconds' in user.stats.lastStudyDate
+                      ? new Date((user.stats.lastStudyDate as { seconds: number }).seconds * 1000)
+                      : null;
+
+                  if (lastStudyDateObj) {
+                    // 現在の連続学習日数分の日付をチェック
+                    for (let i = 0; i < user.stats.currentStreak; i++) {
+                      const studyDate = new Date(lastStudyDateObj);
+                      studyDate.setDate(studyDate.getDate() - i);
+                      const studyDateString = formatDateString(studyDate);
+                      if (day.dateString === studyDateString) {
+                        isStudied = true;
+                        break;
+                      }
+                    }
+                  }
+                }
+
+                return (
+                  <View key={index} style={styles.dayColumn}>
+                    <Text style={styles.dayName}>
+                      {day.name}
+                    </Text>
+                    <View
                       style={[
-                        styles.dayDate,
-                        day.hasStudied === true && styles.dayDateStudied,
+                        styles.dayCircle,
+                        isStudied && styles.dayCircleStudied,
+                        day.isToday && !isStudied && styles.dayCircleToday,
                       ]}
                     >
+                      <Text
+                        style={[
+                          styles.dayDate,
+                          isStudied && styles.dayDateStudied,
+                        ]}
+                      >
                       {day.date}
                     </Text>
                   </View>
                 </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </View>

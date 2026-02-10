@@ -134,19 +134,25 @@ export async function postStreakTweet(user: User, streak: number): Promise<void>
 
 /**
  * 獲得可能なバッジをチェック
+ * BADGES定数と同期した新しいバッジIDを使用
  */
 export function checkEarnableBadges(user: User, newStreak: number, isSkipped: boolean): string[] {
   const newBadges: string[] = [];
   const existingBadges = new Set(user.badges);
 
-  // ストリークバッジ
+  // ストリークバッジ（連続学習日数）
+  // 3, 5, 10, 15, 20, 25, 30, 35, 40, 50日
   const streakBadges: { [key: number]: string } = {
+    3: 'streak_3',
     5: 'streak_5',
     10: 'streak_10',
     15: 'streak_15',
+    20: 'streak_20',
+    25: 'streak_25',
     30: 'streak_30',
-    100: 'streak_100',
-    365: 'streak_365',
+    35: 'streak_35',
+    40: 'streak_40',
+    50: 'streak_50',
   };
 
   if (newStreak > 0) {
@@ -158,11 +164,19 @@ export function checkEarnableBadges(user: User, newStreak: number, isSkipped: bo
   }
 
   // 累計学習日数バッジ
+  // 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100日
   const totalStudyBadges: { [key: number]: string } = {
+    5: 'total_5',
     10: 'total_10',
+    20: 'total_20',
     30: 'total_30',
+    40: 'total_40',
+    50: 'total_50',
+    60: 'total_60',
+    70: 'total_70',
+    80: 'total_80',
+    90: 'total_90',
     100: 'total_100',
-    365: 'total_365',
   };
 
   const totalStudyDays = user.stats.totalStudyDays + (isSkipped ? 0 : 1);
@@ -173,9 +187,15 @@ export function checkEarnableBadges(user: User, newStreak: number, isSkipped: bo
   }
 
   // 累計サボり日数バッジ
+  // 1, 3, 5, 10, 15, 20, 25, 30日
   const totalSkipBadges: { [key: number]: string } = {
     1: 'skip_1',
+    3: 'skip_3',
+    5: 'skip_5',
     10: 'skip_10',
+    15: 'skip_15',
+    20: 'skip_20',
+    25: 'skip_25',
     30: 'skip_30',
   };
 

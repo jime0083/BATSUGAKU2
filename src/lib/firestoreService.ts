@@ -47,8 +47,16 @@ export async function saveDailyLog(
     createdAt: serverTimestamp(),
   };
 
-  await setDoc(docRef, logData);
-  return docId;
+  console.log('saveDailyLog: saving', docId, 'with data', { date: dailyLog.date, hasPushed: dailyLog.hasPushed });
+
+  try {
+    await setDoc(docRef, logData);
+    console.log('saveDailyLog: saved successfully', docId);
+    return docId;
+  } catch (error) {
+    console.error('saveDailyLog: failed to save', docId, error);
+    throw error;
+  }
 }
 
 /**
@@ -242,18 +250,33 @@ export async function getCurrentWeekLogs(userId: string): Promise<DailyLog[]> {
   monday.setHours(0, 0, 0, 0);
 
   const mondayString = formatDateString(monday);
+  console.log('getCurrentWeekLogs: userId =', userId, 'mondayString =', mondayString);
 
-  const logsRef = collection(db, 'dailyLogs');
-  const q = query(
-    logsRef,
-    where('userId', '==', userId),
-    where('date', '>=', mondayString),
-    orderBy('date', 'asc')
-  );
+  try {
+    const logsRef = collection(db, 'dailyLogs');
+    const q = query(
+      logsRef,
+      where('userId', '==', userId),
+      where('date', '>=', mondayString),
+      orderBy('date', 'asc')
+    );
 
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as DailyLog[];
+    const querySnapshot = await getDocs(q);
+    console.log('getCurrentWeekLogs: found', querySnapshot.docs.length, 'docs');
+
+    const logs = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as DailyLog[];
+
+    console.log('getCurrentWeekLogs: logs =', logs.map(l => ({ id: l.id, date: l.date, hasPushed: l.hasPushed })));
+    return logs;
+  } catch (error) {
+    console.error('getCurrentWeekLogs: query error', error);
+    // Firestoreインデックスが必要な場合はエラーメッセージにURLが含まれる
+    if (error instanceof Error && error.message.includes('index')) {
+      console.error('getCurrentWeekLogs: Firestore index required. Check the error message for the URL to create the index.');
+    }
+    throw error;
+  }
 }

@@ -80,18 +80,28 @@ export function useDashboardData(userId: string | undefined): DashboardData {
 
   const fetchData = useCallback(async () => {
     if (!userId) {
+      console.log('useDashboardData: userId is null, skipping fetch');
       return;
     }
 
+    console.log('useDashboardData: fetching data for userId =', userId);
     setLoading(true);
     setError(null);
 
     try {
       const logs = await getCurrentWeekLogs(userId);
+      console.log('useDashboardData: fetched logs =', logs.length, 'logs');
+      console.log('useDashboardData: logs data =', JSON.stringify(logs.map(l => ({ date: l.date, hasPushed: l.hasPushed }))));
+
       const baseWeekDays = getWeekDays();
+      console.log('useDashboardData: baseWeekDays =', baseWeekDays.map(d => d.dateString));
+
       const mappedDays = mapLogsToWeekDays(baseWeekDays, logs);
+      console.log('useDashboardData: mappedDays =', mappedDays.map(d => ({ date: d.dateString, hasStudied: d.hasStudied })));
+
       setWeekDays(mappedDays);
     } catch (err) {
+      console.error('useDashboardData: error fetching data', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch data'));
     } finally {
       setLoading(false);

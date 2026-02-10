@@ -98,11 +98,6 @@ export default function BadgesScreen() {
         <Text style={[styles.badgeName, !isEarned && styles.badgeNameLocked]}>
           {item.name}
         </Text>
-        {isEarned && (
-          <View style={styles.earnedBadge}>
-            <Text style={styles.earnedText}>獲得済み</Text>
-          </View>
-        )}
       </View>
     );
   };
@@ -221,17 +216,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.textSecondary,
     marginTop: 4,
-  },
-  earnedBadge: {
-    backgroundColor: COLORS.success,
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginTop: 8,
-  },
-  earnedText: {
-    fontSize: 8,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
   },
 });
