@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DailyLog } from '../types';
 import { getCurrentWeekLogs, formatDateString } from '../lib/firestoreService';
+import { fetchWeeklyPushDates } from '../lib/github';
 
 export interface WeekDay {
   name: string;
@@ -71,9 +72,21 @@ export function mapLogsToWeekDays(
 }
 
 /**
- * ダッシュボード用のデータを取得するカスタムフック
+ * GitHub認証情報
  */
-export function useDashboardData(userId: string | undefined): DashboardData {
+interface GitHubCredentials {
+  username: string | null;
+  accessToken: string | null;
+}
+
+/**
+ * ダッシュボード用のデータを取得するカスタムフック
+ * GitHub APIから直接push日を取得し、カレンダーに反映
+ */
+export function useDashboardData(
+  userId: string | undefined,
+  github?: GitHubCredentials
+): DashboardData {
   const [weekDays, setWeekDays] = useState<WeekDay[]>(() => getWeekDays());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -89,14 +102,46 @@ export function useDashboardData(userId: string | undefined): DashboardData {
     setError(null);
 
     try {
-      const logs = await getCurrentWeekLogs(userId);
-      console.log('useDashboardData: fetched logs =', logs.length, 'logs');
-      console.log('useDashboardData: logs data =', JSON.stringify(logs.map(l => ({ date: l.date, hasPushed: l.hasPushed }))));
-
       const baseWeekDays = getWeekDays();
       console.log('useDashboardData: baseWeekDays =', baseWeekDays.map(d => d.dateString));
 
-      const mappedDays = mapLogsToWeekDays(baseWeekDays, logs);
+      // GitHub APIから今週のpush日を取得
+      let pushDates: string[] = [];
+      if (github?.username && github?.accessToken) {
+        try {
+          pushDates = await fetchWeeklyPushDates(github.username, github.accessToken);
+          console.log('useDashboardData: GitHub push dates =', pushDates);
+        } catch (githubError) {
+          console.error('useDashboardData: GitHub API error', githubError);
+          // GitHub APIエラーの場合はDailyLogにフォールバック
+        }
+      }
+
+      // DailyLogからも取得（バックアップ用）
+      let logs: DailyLog[] = [];
+      try {
+        logs = await getCurrentWeekLogs(userId);
+        console.log('useDashboardData: fetched logs =', logs.length, 'logs');
+      } catch (logError) {
+        console.error('useDashboardData: DailyLog fetch error', logError);
+      }
+
+      // GitHub APIとDailyLogの両方からpush日を統合
+      const pushDatesSet = new Set(pushDates);
+      logs.forEach(log => {
+        if (log.hasPushed) {
+          pushDatesSet.add(log.date);
+        }
+      });
+
+      console.log('useDashboardData: combined push dates =', Array.from(pushDatesSet));
+
+      // 週間カレンダーにマッピング
+      const mappedDays = baseWeekDays.map((day) => ({
+        ...day,
+        hasStudied: pushDatesSet.has(day.dateString),
+      }));
+
       console.log('useDashboardData: mappedDays =', mappedDays.map(d => ({ date: d.dateString, hasStudied: d.hasStudied })));
 
       setWeekDays(mappedDays);
@@ -106,7 +151,7 @@ export function useDashboardData(userId: string | undefined): DashboardData {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, github?.username, github?.accessToken]);
 
   useEffect(() => {
     fetchData();

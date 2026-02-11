@@ -102,12 +102,14 @@ const computeBadgesFromStats = (
 
 export default function DashboardScreen() {
   const { user, updateUser } = useAuth();
-  const { weekDays, loading, refresh } = useDashboardData(user?.uid);
+  const { weekDays, loading, refresh } = useDashboardData(user?.uid, {
+    username: user?.githubUsername || null,
+    accessToken: user?.githubAccessToken || null,
+  });
   const [refreshing, setRefreshing] = useState(false);
   const goalTweetAttempted = useRef(false);
   const pushCheckAttempted = useRef(false);
   const badgeSyncAttempted = useRef(false);
-  const dailyLogSyncAttempted = useRef(false);
   const appState = useRef(AppState.currentState);
   const lastCheckTime = useRef<number>(0);
 
@@ -307,76 +309,6 @@ export default function DashboardScreen() {
 
     syncBadges();
   }, [user, updateUser]);
-
-  // 連続学習日数に基づいてDailyLogを作成（カレンダー表示用）- 別のuseEffectで実行
-  useEffect(() => {
-    const syncDailyLogs = async () => {
-      if (!user || !user.stats || dailyLogSyncAttempted.current) {
-        return;
-      }
-
-      const { currentStreak, lastStudyDate } = user.stats;
-
-      // 連続学習がない場合はスキップ
-      if (!currentStreak || currentStreak === 0 || !lastStudyDate) {
-        console.log('syncDailyLogs: no streak or lastStudyDate, skipping');
-        return;
-      }
-
-      dailyLogSyncAttempted.current = true;
-
-      try {
-        // Timestamp型の場合はtoDate()を使い、それ以外はDateに変換
-        let lastStudyDateObj: Date;
-        if (typeof lastStudyDate === 'object' && 'toDate' in lastStudyDate && typeof lastStudyDate.toDate === 'function') {
-          lastStudyDateObj = lastStudyDate.toDate();
-        } else if (typeof lastStudyDate === 'object' && 'seconds' in lastStudyDate) {
-          lastStudyDateObj = new Date((lastStudyDate as { seconds: number }).seconds * 1000);
-        } else {
-          lastStudyDateObj = new Date(lastStudyDate as unknown as string | number);
-        }
-        console.log('syncDailyLogs: currentStreak =', currentStreak, 'lastStudyDate =', lastStudyDateObj);
-
-        // 連続学習日数分のDailyLogを作成（最大7日分）
-        const daysToCreate = Math.min(currentStreak, 7);
-        const createdDates: string[] = [];
-
-        for (let i = 0; i < daysToCreate; i++) {
-          const studyDate = new Date(lastStudyDateObj);
-          studyDate.setDate(studyDate.getDate() - i);
-          const dateString = formatDateString(studyDate);
-
-          // DailyLogを作成（既存の場合は上書き）
-          await saveDailyLog({
-            userId: user.uid,
-            date: dateString,
-            hasPushed: true,
-            pushCount: 1,
-            pushedAt: Timestamp.fromDate(studyDate),
-            skipped: false,
-            tweetedSkip: false,
-            tweetedStreak: false,
-            streakMilestone: null,
-          });
-          createdDates.push(dateString);
-        }
-        console.log('syncDailyLogs: created DailyLogs for', createdDates);
-
-        // Firestoreへの書き込みが確実に完了するよう少し待つ
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // カレンダーをリフレッシュ
-        await refresh();
-        console.log('syncDailyLogs: calendar refreshed');
-      } catch (error) {
-        console.error('syncDailyLogs: failed to sync daily logs', error);
-        // エラー時は次回再試行できるようにフラグをリセット
-        dailyLogSyncAttempted.current = false;
-      }
-    };
-
-    syncDailyLogs();
-  }, [user, refresh]);
 
   // GitHub push検出と統計更新（統計更新と通知を分離）
   useEffect(() => {
@@ -710,30 +642,8 @@ export default function DashboardScreen() {
           ) : (
             <View style={styles.weekDays}>
               {weekDays.map((day, index) => {
-                // DailyLogからの学習状態、またはlastStudyDateによるフォールバック
-                let isStudied = day.hasStudied === true;
-
-                // DailyLogがない場合、lastStudyDateに基づいて連続学習日を判定
-                if (!isStudied && user?.stats.lastStudyDate && user?.stats.currentStreak > 0) {
-                  const lastStudyDateObj = user.stats.lastStudyDate.toDate
-                    ? user.stats.lastStudyDate.toDate()
-                    : typeof user.stats.lastStudyDate === 'object' && 'seconds' in user.stats.lastStudyDate
-                      ? new Date((user.stats.lastStudyDate as { seconds: number }).seconds * 1000)
-                      : null;
-
-                  if (lastStudyDateObj) {
-                    // 現在の連続学習日数分の日付をチェック
-                    for (let i = 0; i < user.stats.currentStreak; i++) {
-                      const studyDate = new Date(lastStudyDateObj);
-                      studyDate.setDate(studyDate.getDate() - i);
-                      const studyDateString = formatDateString(studyDate);
-                      if (day.dateString === studyDateString) {
-                        isStudied = true;
-                        break;
-                      }
-                    }
-                  }
-                }
+                // DailyLogからの学習状態のみを使用（実際のpush確認に基づく）
+                const isStudied = day.hasStudied === true;
 
                 return (
                   <View key={index} style={styles.dayColumn}>

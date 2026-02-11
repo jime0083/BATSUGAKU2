@@ -153,3 +153,65 @@ export function countTotalCommits(events: GitHubEvent[]): number {
     return total + (event.payload.commits?.length || 0);
   }, 0);
 }
+
+/**
+ * 今週のpush日を取得（月曜始まり）
+ * @returns pushした日付の配列（YYYY-MM-DD形式）
+ */
+export async function fetchWeeklyPushDates(
+  username: string,
+  accessToken: string
+): Promise<string[]> {
+  console.log('fetchWeeklyPushDates: username =', username);
+
+  const response = await fetch(`${GITHUB_API_BASE}/users/${username}/events?per_page=100`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('GitHub API error:', response.status, response.statusText, errorText);
+    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+  }
+
+  const events: GitHubEvent[] = await response.json();
+  console.log('fetchWeeklyPushDates: total events =', events.length);
+
+  // 今週の月曜日を計算
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  monday.setHours(0, 0, 0, 0);
+
+  console.log('fetchWeeklyPushDates: monday =', monday.toISOString());
+
+  // PushEventを今週の日付でフィルタしてユニークな日付を取得
+  const pushDatesSet = new Set<string>();
+
+  events.forEach((event) => {
+    if (event.type !== 'PushEvent') {
+      return;
+    }
+
+    const eventDate = new Date(event.created_at);
+
+    // 今週の月曜日以降のイベントのみ
+    if (eventDate >= monday) {
+      // 日付をYYYY-MM-DD形式で取得（ローカルタイムゾーン）
+      const year = eventDate.getFullYear();
+      const month = String(eventDate.getMonth() + 1).padStart(2, '0');
+      const day = String(eventDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+      pushDatesSet.add(dateString);
+    }
+  });
+
+  const pushDates = Array.from(pushDatesSet).sort();
+  console.log('fetchWeeklyPushDates: push dates this week =', pushDates);
+
+  return pushDates;
+}
