@@ -10,8 +10,7 @@ import { shouldPostGoalTweet, postGoalTweet } from '../../src/lib/goalTweetServi
 import { hasPushedToday, fetchTodayPushEvents, countTotalCommits } from '../../src/lib/github';
 import { sendPushDetectedNotification } from '../../src/lib/notificationService';
 import { saveDailyLog, formatDateString, updateUserBadges } from '../../src/lib/firestoreService';
-import { checkEarnableBadges } from '../../src/lib/dailyCheck';
-import { UserStats } from '../../src/types';
+import { postAchievementTweetsAfterDailyCheck } from '../../src/lib/achievementTweetService';
 
 // 統一カラーパレット
 const COLORS = {
@@ -113,124 +112,6 @@ export default function DashboardScreen() {
   const appState = useRef(AppState.currentState);
   const lastCheckTime = useRef<number>(0);
 
-  // GitHub push時に統計を更新する関数
-  const updateStatsOnPush = useCallback(async (): Promise<Partial<UserStats> | null> => {
-    if (!user) {
-      console.log('updateStatsOnPush: user is null');
-      return null;
-    }
-
-    const todayString = getTodayDateString();
-    const yesterdayString = getYesterdayDateString();
-    const lastStudyDateString = timestampToDateString(user.stats.lastStudyDate);
-
-    console.log('updateStatsOnPush: todayString =', todayString);
-    console.log('updateStatsOnPush: lastStudyDateString =', lastStudyDateString);
-
-    // 既に今日更新済みの場合はスキップ
-    if (lastStudyDateString === todayString) {
-      console.log('updateStatsOnPush: already updated today, skipping');
-      return null;
-    }
-
-    // 新しい統計を計算
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const lastStudyDate = user.stats.lastStudyDate?.toDate?.();
-    const lastStudyMonth = lastStudyDate?.getMonth();
-
-    // 連続日数を計算
-    let newStreak = 1;
-    if (lastStudyDateString === yesterdayString) {
-      // 昨日も学習していた場合、連続を継続
-      newStreak = (user.stats.currentStreak || 0) + 1;
-    }
-
-    // 今月の学習日数（月が変わっていたらリセット）
-    let newMonthStudyDays = user.stats.currentMonthStudyDays || 0;
-    if (lastStudyMonth !== currentMonth) {
-      newMonthStudyDays = 1;
-    } else {
-      newMonthStudyDays += 1;
-    }
-
-    const newStats: Partial<UserStats> = {
-      currentMonthStudyDays: newMonthStudyDays,
-      totalStudyDays: (user.stats.totalStudyDays || 0) + 1,
-      currentStreak: newStreak,
-      longestStreak: Math.max(user.stats.longestStreak || 0, newStreak),
-      lastStudyDate: Timestamp.fromDate(today),
-    };
-
-    console.log('updateStatsOnPush: newStats =', JSON.stringify(newStats, null, 2));
-
-    try {
-      // push回数を取得
-      let pushCount = 0;
-      if (user.githubUsername && user.githubAccessToken) {
-        try {
-          const events = await fetchTodayPushEvents(user.githubUsername, user.githubAccessToken);
-          pushCount = countTotalCommits(events);
-        } catch (e) {
-          console.log('updateStatsOnPush: failed to get push count', e);
-        }
-      }
-
-      // DailyLogを作成（今週の学習カレンダーに反映させるため）
-      const dateString = formatDateString(today);
-      await saveDailyLog({
-        userId: user.uid,
-        date: dateString,
-        hasPushed: true,
-        pushCount,
-        pushedAt: Timestamp.fromDate(today),
-        skipped: false,
-        tweetedSkip: false,
-        tweetedStreak: false,
-        streakMilestone: null,
-      });
-      console.log('updateStatsOnPush: DailyLog created for', dateString);
-
-      // バッジをチェックして付与
-      const newBadges = checkEarnableBadges(user, newStreak, false);
-      console.log('updateStatsOnPush: newBadges =', newBadges);
-
-      // Firestoreを更新
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        'stats.currentMonthStudyDays': newStats.currentMonthStudyDays,
-        'stats.totalStudyDays': newStats.totalStudyDays,
-        'stats.currentStreak': newStats.currentStreak,
-        'stats.longestStreak': newStats.longestStreak,
-        'stats.lastStudyDate': newStats.lastStudyDate,
-      });
-
-      console.log('updateStatsOnPush: Firestore stats updated successfully');
-
-      // 新しいバッジがあれば追加
-      if (newBadges.length > 0) {
-        await updateUserBadges(user.uid, newBadges);
-        console.log('updateStatsOnPush: badges updated');
-      }
-
-      // Firestoreから最新データを再取得してローカル状態を更新
-      const updatedDoc = await getDoc(userRef);
-      if (updatedDoc.exists()) {
-        const updatedData = updatedDoc.data();
-        console.log('updateStatsOnPush: fetched updated data =', JSON.stringify(updatedData.stats, null, 2));
-        updateUser({
-          stats: updatedData.stats,
-          badges: updatedData.badges || [],
-        });
-      }
-
-      return newStats;
-    } catch (error) {
-      console.error('Failed to update stats:', error);
-      return null;
-    }
-  }, [user, updateUser]);
-
   // 初回目標投稿（サブスク完了後に自動実行）
   useEffect(() => {
     const postInitialGoalTweet = async () => {
@@ -326,19 +207,35 @@ export default function DashboardScreen() {
       return false;
     }
 
-    const todayString = getTodayDateString();
-    const lastStudyDateString = timestampToDateString(user.stats.lastStudyDate);
-
-    console.log('checkAndUpdateGitHubPush: todayString =', todayString);
-    console.log('checkAndUpdateGitHubPush: lastStudyDateString =', lastStudyDateString);
-
-    // 強制チェックでない場合、今日既に更新済みならスキップ
-    if (!forceCheck && lastStudyDateString === todayString) {
-      console.log('checkAndUpdateGitHubPush: already updated today, skipping');
-      return false;
-    }
-
     try {
+      // Firestoreから最新のユーザーデータを取得（stale state問題を回避）
+      const userRef = doc(db, 'users', user.uid);
+      const latestUserDoc = await getDoc(userRef);
+      if (!latestUserDoc.exists()) {
+        console.log('checkAndUpdateGitHubPush: user doc not found');
+        return false;
+      }
+      const latestUserData = latestUserDoc.data();
+      const latestStats = latestUserData.stats || {};
+
+      const todayString = getTodayDateString();
+      const lastStudyDateString = timestampToDateString(latestStats.lastStudyDate);
+
+      console.log('checkAndUpdateGitHubPush: todayString =', todayString);
+      console.log('checkAndUpdateGitHubPush: lastStudyDateString (from Firestore) =', lastStudyDateString);
+      console.log('checkAndUpdateGitHubPush: currentStreak (from Firestore) =', latestStats.currentStreak);
+
+      // 強制チェックでない場合、今日既に更新済みならスキップ
+      if (!forceCheck && lastStudyDateString === todayString) {
+        console.log('checkAndUpdateGitHubPush: already updated today, skipping');
+        // ローカル状態も最新に更新
+        updateUser({
+          stats: latestStats,
+          badges: latestUserData.badges || [],
+        });
+        return false;
+      }
+
       console.log('checkAndUpdateGitHubPush: calling hasPushedToday...');
       const pushed = await hasPushedToday(user.githubUsername, user.githubAccessToken);
       console.log('checkAndUpdateGitHubPush: pushed =', pushed);
@@ -347,52 +244,204 @@ export default function DashboardScreen() {
         // 今日既に統計更新済みの場合は統計更新をスキップ（ただしカレンダーはリフレッシュ）
         if (lastStudyDateString === todayString) {
           console.log('checkAndUpdateGitHubPush: push detected but stats already updated, refreshing calendar only');
+          // ローカル状態を最新に更新
+          updateUser({
+            stats: latestStats,
+            badges: latestUserData.badges || [],
+          });
           await refresh();
           return true;
         }
 
         console.log('checkAndUpdateGitHubPush: push detected, updating stats...');
-        const newStats = await updateStatsOnPush();
 
-        if (newStats) {
-          // 通知を送信
-          const today = new Date();
-          const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-          const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
-          const alreadyNotified = await AsyncStorage.getItem(storageKey);
+        // 統計を計算（最新のFirestoreデータを使用）
+        const yesterdayString = getYesterdayDateString();
+        const today = new Date();
+        const currentMonth = today.getMonth();
 
-          console.log('checkAndUpdateGitHubPush: alreadyNotified =', alreadyNotified);
-
-          if (!alreadyNotified) {
-            await AsyncStorage.setItem(storageKey, 'true');
-            const streakDays = newStats.currentStreak || 1;
-
-            // iPhoneプッシュ通知を送信
-            await sendPushDetectedNotification(streakDays);
-            console.log('checkAndUpdateGitHubPush: push notification sent');
-
-            // アプリ内アラートも表示
-            Alert.alert(
-              'お疲れ様でした！',
-              streakDays > 1
-                ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
-                : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
-            );
+        // lastStudyDateの月を取得
+        let lastStudyMonth: number | undefined;
+        if (latestStats.lastStudyDate) {
+          let lastDate: Date;
+          if (typeof latestStats.lastStudyDate.toDate === 'function') {
+            lastDate = latestStats.lastStudyDate.toDate();
+          } else if (latestStats.lastStudyDate.seconds) {
+            lastDate = new Date(latestStats.lastStudyDate.seconds * 1000);
+          } else {
+            lastDate = new Date(latestStats.lastStudyDate);
           }
-
-          // ダッシュボードデータをリフレッシュ
-          await refresh();
+          lastStudyMonth = lastDate.getMonth();
         }
+
+        // 連続日数を計算
+        let newStreak = 1;
+        if (lastStudyDateString === yesterdayString) {
+          // 昨日も学習していた場合、連続を継続
+          newStreak = (latestStats.currentStreak || 0) + 1;
+        }
+        console.log('checkAndUpdateGitHubPush: calculated newStreak =', newStreak);
+
+        // 今月の学習日数（月が変わっていたらリセット）
+        let newMonthStudyDays = latestStats.currentMonthStudyDays || 0;
+        if (lastStudyMonth !== currentMonth) {
+          newMonthStudyDays = 1;
+        } else {
+          newMonthStudyDays += 1;
+        }
+
+        const newStats = {
+          currentMonthStudyDays: newMonthStudyDays,
+          totalStudyDays: (latestStats.totalStudyDays || 0) + 1,
+          currentStreak: newStreak,
+          longestStreak: Math.max(latestStats.longestStreak || 0, newStreak),
+          lastStudyDate: Timestamp.fromDate(today),
+        };
+
+        console.log('checkAndUpdateGitHubPush: newStats =', JSON.stringify(newStats, null, 2));
+
+        // push回数を取得
+        let pushCount = 0;
+        try {
+          const events = await fetchTodayPushEvents(user.githubUsername, user.githubAccessToken);
+          pushCount = countTotalCommits(events);
+        } catch (e) {
+          console.log('checkAndUpdateGitHubPush: failed to get push count', e);
+        }
+
+        // DailyLogを作成
+        const dateString = formatDateString(today);
+        await saveDailyLog({
+          userId: user.uid,
+          date: dateString,
+          hasPushed: true,
+          pushCount,
+          pushedAt: Timestamp.fromDate(today),
+          skipped: false,
+          tweetedSkip: false,
+          tweetedStreak: false,
+          streakMilestone: null,
+        });
+        console.log('checkAndUpdateGitHubPush: DailyLog created for', dateString);
+
+        // バッジをチェック
+        const newBadges = computeBadgesFromStats(
+          newStreak,
+          newStats.longestStreak,
+          newStats.totalStudyDays,
+          latestStats.totalSkipDays || 0,
+          latestUserData.badges || []
+        );
+        console.log('checkAndUpdateGitHubPush: newBadges =', newBadges);
+
+        // Firestoreを更新
+        await updateDoc(userRef, {
+          'stats.currentMonthStudyDays': newStats.currentMonthStudyDays,
+          'stats.totalStudyDays': newStats.totalStudyDays,
+          'stats.currentStreak': newStats.currentStreak,
+          'stats.longestStreak': newStats.longestStreak,
+          'stats.lastStudyDate': newStats.lastStudyDate,
+        });
+        console.log('checkAndUpdateGitHubPush: Firestore stats updated');
+
+        // 新しいバッジがあれば追加
+        if (newBadges.length > 0) {
+          await updateUserBadges(user.uid, newBadges);
+          console.log('checkAndUpdateGitHubPush: badges updated');
+        }
+
+        // Firestoreから最新データを再取得してローカル状態を更新
+        const updatedDoc = await getDoc(userRef);
+        if (updatedDoc.exists()) {
+          const updatedData = updatedDoc.data();
+          console.log('checkAndUpdateGitHubPush: fetched updated stats =', JSON.stringify(updatedData.stats, null, 2));
+          updateUser({
+            stats: updatedData.stats,
+            badges: updatedData.badges || [],
+          });
+
+          // 達成ツイートを投稿（連続日数・累計日数のマイルストーン達成時）
+          // X連携されている場合のみ
+          if (user.xLinked && user.xAccessToken) {
+            try {
+              // 最新のユーザーデータで達成ツイートをチェック・投稿
+              const userForTweet = {
+                ...user,
+                stats: updatedData.stats,
+                postedTotalDaysMilestones: updatedData.postedTotalDaysMilestones || [],
+                postedStreakMilestones: updatedData.postedStreakMilestones || [],
+              };
+              console.log('checkAndUpdateGitHubPush: checking achievement tweets...');
+              console.log('checkAndUpdateGitHubPush: totalStudyDays =', updatedData.stats.totalStudyDays);
+              console.log('checkAndUpdateGitHubPush: currentStreak =', updatedData.stats.currentStreak);
+              console.log('checkAndUpdateGitHubPush: postedTotalDaysMilestones =', updatedData.postedTotalDaysMilestones);
+              console.log('checkAndUpdateGitHubPush: postedStreakMilestones =', updatedData.postedStreakMilestones);
+
+              const achievementResult = await postAchievementTweetsAfterDailyCheck(userForTweet);
+              console.log('checkAndUpdateGitHubPush: achievement tweet results =', JSON.stringify(achievementResult, null, 2));
+
+              // 投稿成功時はアラートを表示
+              if (achievementResult.totalDaysResult.milestone) {
+                Alert.alert(
+                  '達成おめでとうございます！',
+                  `累計${achievementResult.totalDaysResult.milestone}日達成をXに投稿しました！`
+                );
+              }
+              if (achievementResult.streakResult.milestone) {
+                Alert.alert(
+                  '達成おめでとうございます！',
+                  `${achievementResult.streakResult.milestone}日連続達成をXに投稿しました！`
+                );
+              }
+            } catch (tweetError) {
+              console.error('checkAndUpdateGitHubPush: achievement tweet error', tweetError);
+            }
+          } else {
+            console.log('checkAndUpdateGitHubPush: X not linked, skipping achievement tweets');
+          }
+        }
+
+        // 通知を送信
+        const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+        const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
+        const alreadyNotified = await AsyncStorage.getItem(storageKey);
+
+        console.log('checkAndUpdateGitHubPush: alreadyNotified =', alreadyNotified);
+
+        if (!alreadyNotified) {
+          await AsyncStorage.setItem(storageKey, 'true');
+          const streakDays = newStats.currentStreak || 1;
+
+          // iPhoneプッシュ通知を送信
+          await sendPushDetectedNotification(streakDays);
+          console.log('checkAndUpdateGitHubPush: push notification sent with streak =', streakDays);
+
+          // アプリ内アラートも表示
+          Alert.alert(
+            'お疲れ様でした！',
+            streakDays > 1
+              ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
+              : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
+          );
+        }
+
+        // ダッシュボードデータをリフレッシュ
+        await refresh();
         return true;
       } else {
         console.log('checkAndUpdateGitHubPush: no push detected today');
+        // ローカル状態を最新に更新
+        updateUser({
+          stats: latestStats,
+          badges: latestUserData.badges || [],
+        });
         return false;
       }
     } catch (error) {
       console.error('checkAndUpdateGitHubPush error:', error);
       return false;
     }
-  }, [user, updateStatsOnPush, refresh]);
+  }, [user, updateUser, refresh]);
 
   // 初回ロード時にGitHub pushをチェック
   useEffect(() => {
@@ -437,32 +486,13 @@ export default function DashboardScreen() {
     console.log('=== onRefresh START ===');
     setRefreshing(true);
 
-    // Firestoreから最新のユーザーデータを取得
-    if (user) {
-      try {
-        console.log('onRefresh: fetching latest user data from Firestore...');
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          console.log('onRefresh: latest stats =', JSON.stringify(userData.stats, null, 2));
-          // ローカル状態を最新データで更新
-          updateUser({
-            stats: userData.stats,
-            badges: userData.badges || [],
-          });
-        }
-      } catch (error) {
-        console.error('Failed to refresh user data:', error);
-      }
-    }
-
     // GitHub pushをチェック（強制チェック）
+    // checkAndUpdateGitHubPush内でFirestoreから最新データを取得し、ローカル状態も更新する
     await checkAndUpdateGitHubPush(true);
 
     setRefreshing(false);
     console.log('=== onRefresh END ===');
-  }, [user, updateUser, checkAndUpdateGitHubPush]);
+  }, [checkAndUpdateGitHubPush]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
