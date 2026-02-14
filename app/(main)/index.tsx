@@ -11,6 +11,7 @@ import { hasPushedToday, fetchTodayPushEvents, countTotalCommits } from '../../s
 import { sendPushDetectedNotification } from '../../src/lib/notificationService';
 import { saveDailyLog, formatDateString, updateUserBadges } from '../../src/lib/firestoreService';
 import { postAchievementTweetsAfterDailyCheck } from '../../src/lib/achievementTweetService';
+import { PushSuccessModal, AchievementType } from '../../src/components/PushSuccessModal';
 
 // 統一カラーパレット
 const COLORS = {
@@ -106,6 +107,10 @@ export default function DashboardScreen() {
     accessToken: user?.githubAccessToken || null,
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [showPushSuccessModal, setShowPushSuccessModal] = useState(false);
+  const [modalAchievementType, setModalAchievementType] = useState<AchievementType>('normal');
+  const [modalStreakDays, setModalStreakDays] = useState(0);
+  const [modalTotalDays, setModalTotalDays] = useState(0);
   const goalTweetAttempted = useRef(false);
   const pushCheckAttempted = useRef(false);
   const badgeSyncAttempted = useRef(false);
@@ -416,13 +421,28 @@ export default function DashboardScreen() {
           await sendPushDetectedNotification(streakDays);
           console.log('checkAndUpdateGitHubPush: push notification sent with streak =', streakDays);
 
-          // アプリ内アラートも表示
-          Alert.alert(
-            'お疲れ様でした！',
-            streakDays > 1
-              ? `今日もGitHubにpushしました！\nこれで${streakDays}日連続です！`
-              : '今日もGitHubにpushしました！\n毎日の学習が力になります！'
-          );
+          // 達成タイプを判定（バッジ獲得状況に基づく）
+          // newBadgesに連続バッジがあるかチェック
+          const hasStreakBadge = newBadges.some(badge => badge.startsWith('streak_'));
+          // newBadgesに累計バッジがあるかチェック
+          const hasTotalBadge = newBadges.some(badge => badge.startsWith('total_'));
+
+          console.log('checkAndUpdateGitHubPush: hasStreakBadge =', hasStreakBadge, 'hasTotalBadge =', hasTotalBadge);
+
+          // 達成タイプを決定（連続バッジ優先）
+          let achievementType: AchievementType = 'normal';
+          if (hasStreakBadge) {
+            achievementType = 'streak';
+          } else if (hasTotalBadge) {
+            achievementType = 'total';
+          }
+
+          // モーダルを表示
+          setModalAchievementType(achievementType);
+          setModalStreakDays(streakDays);
+          setModalTotalDays(newStats.totalStudyDays);
+          setShowPushSuccessModal(true);
+          console.log('checkAndUpdateGitHubPush: showing success modal with type =', achievementType);
         }
 
         // ダッシュボードデータをリフレッシュ
@@ -625,6 +645,15 @@ export default function DashboardScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Push成功モーダル */}
+      <PushSuccessModal
+        visible={showPushSuccessModal}
+        onClose={() => setShowPushSuccessModal(false)}
+        achievementType={modalAchievementType}
+        streakDays={modalStreakDays}
+        totalDays={modalTotalDays}
+      />
     </SafeAreaView>
   );
 }
