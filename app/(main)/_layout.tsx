@@ -1,5 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Image, StyleSheet } from 'react-native';
+import { useNotification } from '../../src/hooks/useNotification';
+import { useAuth } from '../../src/contexts/AuthContext';
 
 // アイコン画像の定義
 const icons = {
@@ -32,6 +34,11 @@ function TabIcon({ name, focused }: { name: 'home' | 'badges' | 'settings'; focu
 }
 
 export default function MainLayout() {
+  const { user } = useAuth();
+
+  // 通知システムを初期化（権限リクエスト、トークン取得、リスナー登録）
+  useNotification(user);
+
   return (
     <Tabs
       screenOptions={{

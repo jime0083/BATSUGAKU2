@@ -477,12 +477,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // ローカルユーザー状態を更新
   const updateUser = useCallback((updates: Partial<User>) => {
-    if (!user) return;
-    setUser({
-      ...user,
-      ...updates,
+    setUser((prevUser) => {
+      if (!prevUser) return null;
+      return {
+        ...prevUser,
+        ...updates,
+      };
     });
-  }, [user]);
+  }, []);
 
   const value: AuthContextType = {
     user,

@@ -246,14 +246,36 @@ export default function DashboardScreen() {
       console.log('checkAndUpdateGitHubPush: pushed =', pushed);
 
       if (pushed) {
-        // 今日既に統計更新済みの場合は統計更新をスキップ（ただしカレンダーはリフレッシュ）
+        // 今日既に統計更新済みの場合は統計更新をスキップ（ただしモーダル表示とカレンダーリフレッシュは行う）
         if (lastStudyDateString === todayString) {
-          console.log('checkAndUpdateGitHubPush: push detected but stats already updated, refreshing calendar only');
+          console.log('checkAndUpdateGitHubPush: push detected but stats already updated');
           // ローカル状態を最新に更新
           updateUser({
             stats: latestStats,
             badges: latestUserData.badges || [],
           });
+
+          // 今日まだモーダルを表示していない場合は表示
+          const dateKey = getTodayDateString();
+          const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
+          const alreadyNotified = await AsyncStorage.getItem(storageKey);
+
+          if (!alreadyNotified) {
+            await AsyncStorage.setItem(storageKey, 'true');
+
+            // 通知を送信
+            const streakDays = latestStats.currentStreak || 1;
+            await sendPushDetectedNotification(streakDays);
+            console.log('checkAndUpdateGitHubPush: push notification sent with streak =', streakDays);
+
+            // モーダルを表示（統計は既に更新済みなので、通常の達成タイプ）
+            setModalAchievementType('normal');
+            setModalStreakDays(streakDays);
+            setModalTotalDays(latestStats.totalStudyDays || 0);
+            setShowPushSuccessModal(true);
+            console.log('checkAndUpdateGitHubPush: showing success modal (stats already updated)');
+          }
+
           await refresh();
           return true;
         }
@@ -281,9 +303,13 @@ export default function DashboardScreen() {
 
         // 連続日数を計算
         let newStreak = 1;
+        console.log('checkAndUpdateGitHubPush: comparing lastStudyDateString =', lastStudyDateString, 'with yesterdayString =', yesterdayString);
         if (lastStudyDateString === yesterdayString) {
           // 昨日も学習していた場合、連続を継続
           newStreak = (latestStats.currentStreak || 0) + 1;
+          console.log('checkAndUpdateGitHubPush: consecutive day detected, new streak =', newStreak);
+        } else {
+          console.log('checkAndUpdateGitHubPush: streak reset to 1 (lastStudyDate != yesterday)');
         }
         console.log('checkAndUpdateGitHubPush: calculated newStreak =', newStreak);
 
@@ -407,7 +433,7 @@ export default function DashboardScreen() {
         }
 
         // 通知を送信
-        const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+        const dateKey = getTodayDateString();
         const storageKey = `github_push_notified_${user.uid}_${dateKey}`;
         const alreadyNotified = await AsyncStorage.getItem(storageKey);
 
