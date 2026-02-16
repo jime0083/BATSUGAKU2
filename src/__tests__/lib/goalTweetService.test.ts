@@ -90,7 +90,7 @@ describe('goalTweetService', () => {
       expect(result).toContain('React Native');
       expect(result).toContain('月収');
       expect(result).toContain('50');
-      expect(result).toContain('#バツガク');
+      expect(result).toContain('#BatsuGaku');
     });
 
     it('should generate correct tweet text with yearly income', () => {

@@ -477,12 +477,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // ローカルユーザー状態を更新
   const updateUser = useCallback((updates: Partial<User>) => {
+    console.log('=== updateUser called ===');
+    console.log('updateUser: updates =', JSON.stringify(updates, null, 2));
     setUser((prevUser) => {
-      if (!prevUser) return null;
-      return {
+      if (!prevUser) {
+        console.log('updateUser: prevUser is null, returning null');
+        return null;
+      }
+      const newUser = {
         ...prevUser,
         ...updates,
       };
+      console.log('updateUser: prevUser.stats =', JSON.stringify(prevUser.stats, null, 2));
+      console.log('updateUser: newUser.stats =', JSON.stringify(newUser.stats, null, 2));
+      return newUser;
     });
   }, []);
 

@@ -172,7 +172,7 @@ describe('Daily Check Service', () => {
       expect(text).toContain('TypeScript、React');
       expect(text).toContain('#今月3回目');
       expect(text).toContain('#累計11回');
-      expect(text).toContain('#バツガク');
+      expect(text).toContain('#BatsuGaku');
     });
 
     it('should handle yearly income type', () => {
@@ -207,7 +207,7 @@ describe('Daily Check Service', () => {
       expect(text).toContain('TypeScript、React');
       expect(text).toContain('30日連続達成');
       expect(text).toContain('#30日連続');
-      expect(text).toContain('#バツガク');
+      expect(text).toContain('#BatsuGaku');
     });
   });
 });

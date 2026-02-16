@@ -208,7 +208,7 @@ describe('achievementTweetService', () => {
       expect(text).toContain('月収');
       expect(text).toContain('100万円');
       expect(text).toContain('通算10日');
-      expect(text).toContain('#バツガク');
+      expect(text).toContain('#BatsuGaku');
     });
 
     it('目標がない場合は簡易フォーマットを使用する', () => {
@@ -230,7 +230,7 @@ describe('achievementTweetService', () => {
       expect(text).toContain('月収');
       expect(text).toContain('100万円');
       expect(text).toContain('5日連続');
-      expect(text).toContain('#バツガク');
+      expect(text).toContain('#BatsuGaku');
     });
 
     it('目標がない場合は簡易フォーマットを使用する', () => {
