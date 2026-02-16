@@ -493,7 +493,8 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (user && !pushCheckAttempted.current) {
       pushCheckAttempted.current = true;
-      checkAndUpdateGitHubPush(false);
+      // 常にforceCheck=trueで呼び出し、pushが検出されたらモーダル表示と統計更新を行う
+      checkAndUpdateGitHubPush(true);
     }
   }, [user, checkAndUpdateGitHubPush]);
 
