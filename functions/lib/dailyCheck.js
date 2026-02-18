@@ -105,7 +105,23 @@ function checkStreakMilestone(streak) {
     return STREAK_MILESTONES.includes(streak) ? streak : null;
 }
 /**
+ * 今日の日付文字列をlastStudyDateから取得
+ */
+function getLastStudyDateString(lastStudyDate) {
+    if (!lastStudyDate)
+        return null;
+    const date = typeof lastStudyDate.toDate === 'function' ? lastStudyDate.toDate() : null;
+    if (!date)
+        return null;
+    const jstOffset = 9 * 60 * 60 * 1000;
+    const jstDate = new Date(date.getTime() + jstOffset);
+    return jstDate.toISOString().split('T')[0];
+}
+/**
  * 単一ユーザーの日次チェックを実行
+ *
+ * 重要: GitHub Webhookで既に統計が更新されている場合（今日pushした場合）は
+ * 統計の二重カウントを防ぐため、統計更新とツイート投稿をスキップする
  */
 async function performDailyCheckForUser(user, xClientId, xClientSecret) {
     const db = admin.firestore();
@@ -122,12 +138,37 @@ async function performDailyCheckForUser(user, xClientId, xClientSecret) {
             error: 'Already checked today',
         };
     }
-    // GitHub pushチェック
+    // 今日既に統計が更新されているかチェック（GitHub Webhookで更新済みの場合）
+    const lastStudyDateString = getLastStudyDateString(user.stats.lastStudyDate);
+    if (lastStudyDateString === today) {
+        console.log(`User ${user.uid} already studied today (via webhook), skipping stats update`);
+        // DailyLogだけ保存して終了（統計は更新しない）
+        const dailyLog = {
+            userId: user.uid,
+            date: today,
+            hasPushed: true,
+            checkedAt: firestore_1.Timestamp.now(),
+            tweetedSkip: false,
+            tweetedStreak: false,
+            streakAtCheck: user.stats.currentStreak,
+            earnedBadges: [],
+        };
+        await db.collection('dailyLogs').add(dailyLog);
+        return {
+            userId: user.uid,
+            hasPushed: true,
+            newStreak: user.stats.currentStreak,
+            tweetedSkip: false,
+            tweetedStreak: false,
+        };
+    }
+    // GitHub pushチェック（Webhookで更新されていない場合のみ）
     const { hasPushed, error: githubError } = await (0, github_1.checkUserPush)(user);
     if (githubError && githubError !== 'GitHub not linked') {
         console.error(`GitHub check failed for ${user.uid}:`, githubError);
     }
-    // 統計更新
+    // 統計更新（pushしていない場合のみサボり処理）
+    // pushしている場合はWebhookで更新済みのはずなので、ここには来ない
     const newStats = hasPushed
         ? updateStatsForStudy(user.stats, today)
         : updateStatsForSkip(user.stats, today);

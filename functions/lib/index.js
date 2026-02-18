@@ -360,7 +360,7 @@ exports.getSubscriptionStatus = (0, https_1.onCall)({
 exports.githubWebhook = (0, https_1.onRequest)({
     memory: '256MiB',
     timeoutSeconds: 60,
-    secrets: [githubWebhookSecret],
+    secrets: [githubWebhookSecret, xClientId, xClientSecret],
     cors: false,
 }, async (req, res) => {
     var _a, _b, _c;
@@ -395,8 +395,8 @@ exports.githubWebhook = (0, https_1.onRequest)({
         console.log('Received GitHub push from:', senderUsername);
         console.log('Repository:', (_b = payload.repository) === null || _b === void 0 ? void 0 : _b.full_name);
         console.log('Commits:', ((_c = payload.commits) === null || _c === void 0 ? void 0 : _c.length) || 0);
-        // pushイベントを処理
-        const result = await (0, githubWebhook_1.handleGitHubPush)(senderUsername);
+        // pushイベントを処理（X認証情報を渡して達成ツイートを投稿）
+        const result = await (0, githubWebhook_1.handleGitHubPush)(senderUsername, xClientId.value(), xClientSecret.value());
         console.log('GitHub push handled:', result);
         res.status(200).json(result);
     }

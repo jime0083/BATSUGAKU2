@@ -61,6 +61,9 @@ export interface User {
   onboardingCompleted: boolean;
   isAdmin: boolean;
   subscription: UserSubscription | null;
+  goalTweetPosted?: boolean;
+  postedTotalDaysMilestones?: number[];
+  postedStreakMilestones?: number[];
 }
 
 /**

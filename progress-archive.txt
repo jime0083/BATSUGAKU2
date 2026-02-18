@@ -1,0 +1,60 @@
+================================================================================
+BATSUGAKU (バツガク) - 完了済みタスクアーカイブ
+================================================================================
+
+最終アーカイブ: 2026-02-17
+※ このファイルは完了済みタスクの記録です。現在の進捗はprogress.txtを参照。
+
+================================================================================
+完了済みPhase一覧
+================================================================================
+
+■ Phase 1: 基盤・設定                                    完了: 2026-01-20
+■ Phase 2: 認証・OAuth連携                               完了: 2026-01-20
+■ Phase 3: コア機能（バックエンド）                      完了: 2026-01-20
+■ Phase 4: UI画面（既存・実装済み）                      完了: 以前に実装済み
+■ Phase 5: UI連携・統合                                  完了: 2026-01-20
+■ Phase 6: Firestore連携                                 完了: 2026-01-20
+■ Phase 7: 通知機能                                      完了: 2026-01-20
+■ Phase 8: 自動実行（Cloud Functions）                   完了: 2026-01-24
+■ Phase 9: サブスクリプション                            完了: 2026-01-24
+■ Phase 10.1-10.2: ユニット・統合テスト                  完了: 2026-01-24
+■ Phase 11: 実機テスト・UI改善                           完了: 2026-02-16
+■ Phase 12: 実機テスト環境構築・Googleログイン修正       完了: 2026-02-06
+■ Phase 14: 追加機能                                     完了: 2026-02-04
+■ Phase 15: UI改善・最終調整                             完了: 2026-02-16
+■ Phase 16: 通知機能強化                                 完了: 2026-02-09
+
+================================================================================
+テスト実行結果（最新）
+================================================================================
+
+実行日: 2026-02-16
+Test Suites: 16 passed, 16 total
+Tests:       216 passed, 216 total
+TypeScript型チェック: エラーなし
+
+================================================================================
+実装済みファイル一覧
+================================================================================
+
+【ソースコード】
+- src/lib/github.ts, twitter.ts, dailyCheck.ts, dailyCheckService.ts
+- src/lib/firestoreService.ts, subscription.ts, iapService.ts
+- src/lib/notificationService.ts, goalTweetService.ts, achievementTweetService.ts
+- src/lib/utils/stats.ts
+- src/hooks/useDashboardData.ts, useDailyCheck.ts, useSubscription.ts, useNotification.ts
+- src/components/DailyCheckButton.tsx, DailyCheckResultModal.tsx, PaywallScreen.tsx
+- src/contexts/AuthContext.tsx
+- app/(main)/*.tsx, app/linking/*.tsx, app/subscription/*.tsx
+
+【Cloud Functions】
+- functions/src/index.ts, types.ts, dailyCheck.ts, twitter.ts, github.ts
+- functions/src/receiptValidation.ts, githubWebhook.ts, pushNotification.ts
+
+【テスト】
+- src/__tests__/lib/*.test.ts (12ファイル)
+- src/__tests__/hooks/*.test.ts (2ファイル)
+- src/__tests__/integration/*.test.ts (2ファイル)
+
+================================================================================

@@ -6,7 +6,7 @@ import {
   GoogleAuthProvider,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import {
   GoogleSignin,
   statusCodes,
@@ -92,35 +92,64 @@ export function AuthProvider({ children }: AuthProviderProps) {
     xDiscovery
   );
 
-  // Firebase Auth状態の監視
+  // Firebase Auth状態の監視 + Firestoreリアルタイムリスナー
   useEffect(() => {
     console.log('=== Setting up onAuthStateChanged listener ===');
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let unsubscribeFirestore: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('=== onAuthStateChanged triggered ===');
       console.log('Firebase user:', firebaseUser ? firebaseUser.uid : 'null');
 
+      // 以前のFirestoreリスナーを解除
+      if (unsubscribeFirestore) {
+        unsubscribeFirestore();
+        unsubscribeFirestore = null;
+      }
+
       if (firebaseUser) {
         try {
-          // Firestoreからユーザーデータを取得
-          console.log('Fetching user data from Firestore...');
+          // 初回データ取得
+          console.log('Fetching initial user data from Firestore...');
           const userData = await fetchUserData(firebaseUser);
-          console.log('User data fetched:', JSON.stringify(userData, null, 2));
-          console.log('Setting user state...');
+          console.log('Initial user data fetched');
           setUser(userData);
-          console.log('User state set successfully');
+          setLoading(false);
+
+          // Firestoreリアルタイムリスナーを設定
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          unsubscribeFirestore = onSnapshot(
+            userRef,
+            (docSnapshot) => {
+              if (docSnapshot.exists()) {
+                const data = docSnapshot.data() as User;
+                console.log('=== Firestore realtime update received ===');
+                console.log('Updated stats:', JSON.stringify(data.stats, null, 2));
+                setUser(data);
+              }
+            },
+            (error) => {
+              console.error('Firestore listener error:', error);
+            }
+          );
         } catch (error) {
           console.error('Error fetching user data:', error);
           setUser(null);
+          setLoading(false);
         }
       } else {
         console.log('No Firebase user, setting user to null');
         setUser(null);
+        setLoading(false);
       }
-      console.log('Setting loading to false');
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeFirestore) {
+        unsubscribeFirestore();
+      }
+    };
   }, []);
 
   // GitHub認証レスポンスの処理

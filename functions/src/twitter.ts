@@ -69,6 +69,50 @@ export function generateStreakTweetText(user: User, days: number): string {
 }
 
 /**
+ * 日付を「◯月◯日」形式にフォーマット
+ */
+function formatDeadlineForTweet(deadline: { toDate?: () => Date } | Date): string {
+  const date = deadline && typeof (deadline as { toDate?: () => Date }).toDate === 'function'
+    ? (deadline as { toDate: () => Date }).toDate()
+    : deadline as Date;
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  return `${month}月${day}日`;
+}
+
+/**
+ * 通算日数達成ツイートのテキストを生成
+ */
+export function generateTotalDaysAchievementText(user: User, totalDays: number): string {
+  if (!user.goal) {
+    return `通算${totalDays}日作業しました目標を達成するため日々がんばっています🔥 ${HASHTAG}`;
+  }
+
+  const { deadline, skills, targetIncome, incomeType } = user.goal;
+  const formattedDeadline = formatDeadlineForTweet(deadline);
+  const skill = skills[0] || 'プログラミング';
+  const incomeTypeText = incomeType === 'monthly' ? '月収' : '年収';
+
+  return `${formattedDeadline}までに「${skill}」で${incomeTypeText}${targetIncome}万円稼ぐという目標を設定してから通算${totalDays}日作業しました目標を達成するため日々がんばっています🔥 ${HASHTAG}`;
+}
+
+/**
+ * 連続日数達成ツイートのテキストを生成
+ */
+export function generateStreakAchievementText(user: User, streakDays: number): string {
+  if (!user.goal) {
+    return `${streakDays}日連続で作業しました目標を達成するため日々がんばっています🔥 ${HASHTAG}`;
+  }
+
+  const { deadline, skills, targetIncome, incomeType } = user.goal;
+  const formattedDeadline = formatDeadlineForTweet(deadline);
+  const skill = skills[0] || 'プログラミング';
+  const incomeTypeText = incomeType === 'monthly' ? '月収' : '年収';
+
+  return `${formattedDeadline}までに「${skill}」で${incomeTypeText}${targetIncome}万円稼ぐという目標を設定してから${streakDays}日連続で作業しました目標を達成するため日々がんばっています🔥 ${HASHTAG}`;
+}
+
+/**
  * 管理者用日次統計ツイートのテキストを生成
  */
 export function generateDailyStatsTweetText(

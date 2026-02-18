@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.postTweet = postTweet;
 exports.generateSkipTweetText = generateSkipTweetText;
 exports.generateStreakTweetText = generateStreakTweetText;
+exports.generateTotalDaysAchievementText = generateTotalDaysAchievementText;
+exports.generateStreakAchievementText = generateStreakAchievementText;
 exports.generateDailyStatsTweetText = generateDailyStatsTweetText;
 exports.postSkipTweet = postSkipTweet;
 exports.postStreakTweet = postStreakTweet;
@@ -67,6 +69,43 @@ function generateStreakTweetText(user, days) {
     var _a;
     const skillsText = ((_a = user.goal) === null || _a === void 0 ? void 0 : _a.skills.join('、')) || '学習';
     return `${skillsText}学習${days}日連続達成！ #${days}日連続 ${HASHTAG}`;
+}
+/**
+ * 日付を「◯月◯日」形式にフォーマット
+ */
+function formatDeadlineForTweet(deadline) {
+    const date = deadline && typeof deadline.toDate === 'function'
+        ? deadline.toDate()
+        : deadline;
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}月${day}日`;
+}
+/**
+ * 通算日数達成ツイートのテキストを生成
+ */
+function generateTotalDaysAchievementText(user, totalDays) {
+    if (!user.goal) {
+        return `通算${totalDays}日作業しました目標を達成するため日々がんばっています🔥 ${HASHTAG}`;
+    }
+    const { deadline, skills, targetIncome, incomeType } = user.goal;
+    const formattedDeadline = formatDeadlineForTweet(deadline);
+    const skill = skills[0] || 'プログラミング';
+    const incomeTypeText = incomeType === 'monthly' ? '月収' : '年収';
+    return `${formattedDeadline}までに「${skill}」で${incomeTypeText}${targetIncome}万円稼ぐという目標を設定してから通算${totalDays}日作業しました目標を達成するため日々がんばっています🔥 ${HASHTAG}`;
+}
+/**
+ * 連続日数達成ツイートのテキストを生成
+ */
+function generateStreakAchievementText(user, streakDays) {
+    if (!user.goal) {
+        return `${streakDays}日連続で作業しました目標を達成するため日々がんばっています🔥 ${HASHTAG}`;
+    }
+    const { deadline, skills, targetIncome, incomeType } = user.goal;
+    const formattedDeadline = formatDeadlineForTweet(deadline);
+    const skill = skills[0] || 'プログラミング';
+    const incomeTypeText = incomeType === 'monthly' ? '月収' : '年収';
+    return `${formattedDeadline}までに「${skill}」で${incomeTypeText}${targetIncome}万円稼ぐという目標を設定してから${streakDays}日連続で作業しました目標を達成するため日々がんばっています🔥 ${HASHTAG}`;
 }
 /**
  * 管理者用日次統計ツイートのテキストを生成

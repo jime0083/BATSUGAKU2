@@ -462,7 +462,7 @@ export const githubWebhook = onRequest(
   {
     memory: '256MiB',
     timeoutSeconds: 60,
-    secrets: [githubWebhookSecret],
+    secrets: [githubWebhookSecret, xClientId, xClientSecret],
     cors: false,
   },
   async (req, res) => {
@@ -504,8 +504,12 @@ export const githubWebhook = onRequest(
       console.log('Repository:', payload.repository?.full_name);
       console.log('Commits:', payload.commits?.length || 0);
 
-      // pushイベントを処理
-      const result = await handleGitHubPush(senderUsername);
+      // pushイベントを処理（X認証情報を渡して達成ツイートを投稿）
+      const result = await handleGitHubPush(
+        senderUsername,
+        xClientId.value(),
+        xClientSecret.value()
+      );
 
       console.log('GitHub push handled:', result);
 

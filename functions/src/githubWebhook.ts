@@ -10,6 +10,17 @@ import { Timestamp } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
 import { User, UserStats } from './types';
 import { sendGitHubPushNotification } from './pushNotification';
+import {
+  postTweet,
+  generateTotalDaysAchievementText,
+  generateStreakAchievementText,
+  isTokenExpired,
+  refreshXToken,
+} from './twitter';
+
+// 達成マイルストーン
+const TOTAL_DAYS_MILESTONES = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300, 365];
+const STREAK_MILESTONES = [3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300, 365];
 
 /**
  * GitHub Webhookペイロードの署名を検証
@@ -154,15 +165,64 @@ async function markAsNotified(userId: string): Promise<void> {
 }
 
 /**
+ * 通算日数の達成マイルストーンをチェック
+ */
+function checkTotalDaysAchievement(
+  totalDays: number,
+  postedMilestones: number[] = []
+): number | null {
+  const postedSet = new Set(postedMilestones);
+  for (const milestone of TOTAL_DAYS_MILESTONES) {
+    if (totalDays >= milestone && !postedSet.has(milestone)) {
+      return milestone;
+    }
+  }
+  // 10日ごとの追加マイルストーン
+  if (totalDays > 365) {
+    const additionalMilestone = Math.floor(totalDays / 10) * 10;
+    if (!postedSet.has(additionalMilestone)) {
+      return additionalMilestone;
+    }
+  }
+  return null;
+}
+
+/**
+ * 連続日数の達成マイルストーンをチェック
+ */
+function checkStreakAchievement(
+  streakDays: number,
+  postedMilestones: number[] = []
+): number | null {
+  const postedSet = new Set(postedMilestones);
+  for (const milestone of STREAK_MILESTONES) {
+    if (streakDays >= milestone && !postedSet.has(milestone)) {
+      return milestone;
+    }
+  }
+  // 5日ごとの追加マイルストーン
+  if (streakDays > 365) {
+    const additionalMilestone = Math.floor(streakDays / 5) * 5;
+    if (!postedSet.has(additionalMilestone)) {
+      return additionalMilestone;
+    }
+  }
+  return null;
+}
+
+/**
  * GitHub pushイベントを処理
  */
 export async function handleGitHubPush(
-  senderUsername: string
+  senderUsername: string,
+  xClientId?: string,
+  xClientSecret?: string
 ): Promise<{
   success: boolean;
   message: string;
   notificationSent?: boolean;
   statsUpdated?: boolean;
+  achievementTweeted?: boolean;
 }> {
   console.log(`Processing GitHub push for user: ${senderUsername}`);
 
@@ -237,11 +297,86 @@ export async function handleGitHubPush(
     console.log('User has no fcmToken or notifications disabled');
   }
 
+  // 達成ツイートを投稿（統計更新された場合のみ）
+  let achievementTweeted = false;
+
+  if (statsUpdated && user.xLinked && user.xAccessToken) {
+    // 最新のユーザー情報を取得
+    const updatedUserDoc = await db.collection('users').doc(user.uid).get();
+    let updatedUser = { ...updatedUserDoc.data(), uid: updatedUserDoc.id } as User;
+
+    // トークンの有効期限チェック＆リフレッシュ
+    if (isTokenExpired(updatedUser) && updatedUser.xRefreshToken && xClientId && xClientSecret) {
+      console.log('Refreshing X token for user:', user.uid);
+      const refreshed = await refreshXToken(
+        updatedUser.xRefreshToken,
+        xClientId,
+        xClientSecret
+      );
+      if (refreshed) {
+        await db.collection('users').doc(user.uid).update({
+          xAccessToken: refreshed.accessToken,
+          xRefreshToken: refreshed.refreshToken,
+          xTokenExpiresAt: refreshed.expiresAt,
+        });
+        updatedUser = {
+          ...updatedUser,
+          xAccessToken: refreshed.accessToken,
+          xRefreshToken: refreshed.refreshToken,
+          xTokenExpiresAt: refreshed.expiresAt,
+        };
+      }
+    }
+
+    // 通算日数達成ツイート
+    const totalDaysMilestone = checkTotalDaysAchievement(
+      updatedUser.stats.totalStudyDays,
+      updatedUser.postedTotalDaysMilestones || []
+    );
+    if (totalDaysMilestone && updatedUser.xAccessToken) {
+      console.log('Posting total days achievement tweet:', totalDaysMilestone);
+      const tweetText = generateTotalDaysAchievementText(updatedUser, totalDaysMilestone);
+      const tweetResult = await postTweet(updatedUser.xAccessToken, tweetText);
+      if (tweetResult.success) {
+        const updatedMilestones = [...(updatedUser.postedTotalDaysMilestones || []), totalDaysMilestone];
+        await db.collection('users').doc(user.uid).update({
+          postedTotalDaysMilestones: updatedMilestones,
+        });
+        achievementTweeted = true;
+        console.log('Total days achievement tweet posted:', totalDaysMilestone);
+      } else {
+        console.error('Failed to post total days achievement tweet:', tweetResult.error);
+      }
+    }
+
+    // 連続日数達成ツイート
+    const streakMilestone = checkStreakAchievement(
+      updatedUser.stats.currentStreak,
+      updatedUser.postedStreakMilestones || []
+    );
+    if (streakMilestone && updatedUser.xAccessToken) {
+      console.log('Posting streak achievement tweet:', streakMilestone);
+      const tweetText = generateStreakAchievementText(updatedUser, streakMilestone);
+      const tweetResult = await postTweet(updatedUser.xAccessToken, tweetText);
+      if (tweetResult.success) {
+        const updatedMilestones = [...(updatedUser.postedStreakMilestones || []), streakMilestone];
+        await db.collection('users').doc(user.uid).update({
+          postedStreakMilestones: updatedMilestones,
+        });
+        achievementTweeted = true;
+        console.log('Streak achievement tweet posted:', streakMilestone);
+      } else {
+        console.error('Failed to post streak achievement tweet:', tweetResult.error);
+      }
+    }
+  }
+
   return {
     success: true,
     message: `Processed push for ${senderUsername}`,
     notificationSent,
     statsUpdated,
+    achievementTweeted,
   };
 }
 

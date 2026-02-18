@@ -248,3 +248,68 @@ export async function postAchievementTweetsAfterDailyCheck(
 
   return { totalDaysResult, streakResult };
 }
+
+/**
+ * 全ての未投稿マイルストーンを取得
+ */
+export function getAllMissingTotalDaysMilestones(
+  totalDays: number,
+  postedMilestones: number[] = []
+): number[] {
+  const postedSet = new Set(postedMilestones);
+  const missing: number[] = [];
+
+  for (const milestone of TOTAL_DAYS_ACHIEVEMENT_MILESTONES) {
+    if (totalDays >= milestone && !postedSet.has(milestone)) {
+      missing.push(milestone);
+    }
+  }
+
+  return missing;
+}
+
+/**
+ * 全ての未投稿通算日数マイルストーンのツイートを投稿
+ * 一度に複数投稿する場合はスパム防止のため最大1件のみ
+ */
+export async function postAllMissingTotalDaysTweets(
+  user: User
+): Promise<{ success: boolean; postedMilestones: number[]; error?: string }> {
+  if (!user.xAccessToken) {
+    return { success: false, postedMilestones: [], error: 'X連携が必要です' };
+  }
+
+  if (!user.goal) {
+    return { success: false, postedMilestones: [], error: '目標設定が必要です' };
+  }
+
+  const totalDays = user.stats.totalStudyDays;
+  const postedMilestones = user.postedTotalDaysMilestones || [];
+  const missingMilestones = getAllMissingTotalDaysMilestones(totalDays, postedMilestones);
+
+  if (missingMilestones.length === 0) {
+    return { success: true, postedMilestones: [] };
+  }
+
+  console.log('postAllMissingTotalDaysTweets: missing milestones =', missingMilestones);
+
+  // 最新のマイルストーンのみ投稿（スパム防止）
+  const latestMilestone = Math.max(...missingMilestones);
+
+  try {
+    const tweetText = generateTotalDaysAchievementText(user, latestMilestone);
+    console.log('postAllMissingTotalDaysTweets: posting tweet for milestone', latestMilestone);
+    await postTweet(user.xAccessToken, tweetText);
+
+    // 全ての未投稿マイルストーンを投稿済みとして記録
+    const updatedMilestones = [...postedMilestones, ...missingMilestones];
+    await updateUser(user.uid, { postedTotalDaysMilestones: updatedMilestones });
+
+    console.log('postAllMissingTotalDaysTweets: success, marked as posted:', missingMilestones);
+    return { success: true, postedMilestones: missingMilestones };
+  } catch (error) {
+    console.error('postAllMissingTotalDaysTweets: error', error);
+    const errorMessage = error instanceof Error ? error.message : '投稿に失敗しました';
+    return { success: false, postedMilestones: [], error: errorMessage };
+  }
+}

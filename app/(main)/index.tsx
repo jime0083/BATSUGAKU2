@@ -10,7 +10,7 @@ import { shouldPostGoalTweet, postGoalTweet } from '../../src/lib/goalTweetServi
 import { hasPushedToday, fetchTodayPushEvents, countTotalCommits } from '../../src/lib/github';
 import { sendPushDetectedNotification } from '../../src/lib/notificationService';
 import { saveDailyLog, formatDateString, updateUserBadges } from '../../src/lib/firestoreService';
-import { postAchievementTweetsAfterDailyCheck } from '../../src/lib/achievementTweetService';
+import { postAllMissingTotalDaysTweets, postStreakAchievementTweet } from '../../src/lib/achievementTweetService';
 import { recalculateAndUpdateStats } from '../../src/lib/statsRecalculationService';
 import { PushSuccessModal, AchievementType } from '../../src/components/PushSuccessModal';
 
@@ -339,19 +339,25 @@ export default function DashboardScreen() {
               };
               console.log('checkAndUpdateGitHubPush: checking achievement tweets...');
 
-              const achievementResult = await postAchievementTweetsAfterDailyCheck(userForTweet);
-              console.log('checkAndUpdateGitHubPush: achievement tweet results =', JSON.stringify(achievementResult, null, 2));
+              // 累計日数の達成ツイート（全ての未投稿マイルストーンを処理）
+              const totalDaysResult = await postAllMissingTotalDaysTweets(userForTweet);
+              console.log('checkAndUpdateGitHubPush: totalDays tweet result =', JSON.stringify(totalDaysResult, null, 2));
 
-              if (achievementResult.totalDaysResult.milestone) {
+              // 連続日数の達成ツイート
+              const streakResult = await postStreakAchievementTweet(userForTweet);
+              console.log('checkAndUpdateGitHubPush: streak tweet result =', JSON.stringify(streakResult, null, 2));
+
+              if (totalDaysResult.success && totalDaysResult.postedMilestones.length > 0) {
+                const latestMilestone = Math.max(...totalDaysResult.postedMilestones);
                 Alert.alert(
                   '達成おめでとうございます！',
-                  `累計${achievementResult.totalDaysResult.milestone}日達成をXに投稿しました！`
+                  `累計${latestMilestone}日達成をXに投稿しました！`
                 );
               }
-              if (achievementResult.streakResult.milestone) {
+              if (streakResult.milestone) {
                 Alert.alert(
                   '達成おめでとうございます！',
-                  `${achievementResult.streakResult.milestone}日連続達成をXに投稿しました！`
+                  `${streakResult.milestone}日連続達成をXに投稿しました！`
                 );
               }
             } catch (tweetError) {
