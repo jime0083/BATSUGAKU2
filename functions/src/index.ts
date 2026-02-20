@@ -19,6 +19,7 @@ import {
   handleGitHubPush,
   GitHubPushPayload,
 } from './githubWebhook';
+import { sendReminderNotification } from './pushNotification';
 import { User } from './types';
 
 // Firebase Admin初期化
@@ -87,6 +88,106 @@ export const dailyAutoCheck = onSchedule(
     } catch (error) {
       console.error('Daily auto check failed:', error);
       throw error;
+    }
+  }
+);
+
+/**
+ * 23:30リマインダー通知（毎日23:30 JST実行）
+ *
+ * まだGitHubにpushしていないユーザーにリマインダー通知を送信
+ */
+export const dailyReminderNotification = onSchedule(
+  {
+    schedule: '30 23 * * *', // 毎日23:30
+    timeZone: 'Asia/Tokyo', // JST
+    retryCount: 1,
+    memory: '256MiB',
+    timeoutSeconds: 300, // 5分
+  },
+  async (_event: ScheduledEvent) => {
+    console.log('Starting daily reminder notification at', new Date().toISOString());
+
+    const db = admin.firestore();
+
+    // 今日の日付文字列（JST）
+    const now = new Date();
+    const jstOffset = 9 * 60 * 60 * 1000;
+    const jstNow = new Date(now.getTime() + jstOffset);
+    const today = jstNow.toISOString().split('T')[0];
+
+    // アクティブなユーザーを取得
+    const usersSnapshot = await db
+      .collection('users')
+      .where('onboardingCompleted', '==', true)
+      .where('githubLinked', '==', true)
+      .where('notificationsEnabled', '==', true)
+      .get();
+
+    let sentCount = 0;
+    let skippedCount = 0;
+    const errors: string[] = [];
+
+    for (const doc of usersSnapshot.docs) {
+      const user = { ...doc.data(), uid: doc.id } as User;
+
+      // サブスクチェック（管理者はバイパス）
+      const hasAccess =
+        user.isAdmin ||
+        (user.subscription?.isActive &&
+          user.subscription.expiresAt.toDate() > new Date());
+
+      if (!hasAccess) {
+        continue;
+      }
+
+      // fcmTokenがない場合はスキップ
+      if (!user.fcmToken) {
+        continue;
+      }
+
+      // 今日既にpushしているかチェック
+      const lastStudyDate = user.stats?.lastStudyDate?.toDate?.() || null;
+      let lastStudyDateString: string | null = null;
+      if (lastStudyDate) {
+        const jstDate = new Date(lastStudyDate.getTime() + jstOffset);
+        lastStudyDateString = jstDate.toISOString().split('T')[0];
+      }
+
+      // 今日既にpushしている場合はスキップ
+      if (lastStudyDateString === today) {
+        skippedCount++;
+        continue;
+      }
+
+      // リマインダー通知を送信
+      try {
+        const result = await sendReminderNotification(
+          user.fcmToken,
+          user.stats?.currentStreak || 0
+        );
+
+        if (result.success) {
+          sentCount++;
+          console.log(`Reminder sent to user: ${user.uid}`);
+        } else {
+          errors.push(`${user.uid}: ${result.error}`);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        errors.push(`${user.uid}: ${errorMessage}`);
+        console.error(`Error sending reminder to ${user.uid}:`, error);
+      }
+    }
+
+    console.log('Daily reminder notification completed:', {
+      sentCount,
+      skippedCount,
+      errorCount: errors.length,
+    });
+
+    if (errors.length > 0) {
+      console.error('Errors during reminder notification:', errors);
     }
   }
 );
@@ -458,6 +559,69 @@ export const getSubscriptionStatus = onCall(
  * 4. Secret: GITHUB_WEBHOOK_SECRET と同じ値
  * 5. Events: "Just the push event" を選択
  */
+/**
+ * ユーザーの統計データを手動で修正（管理者用）
+ */
+export const fixUserStats = onCall(
+  {
+    memory: '256MiB',
+    timeoutSeconds: 60,
+  },
+  async (request) => {
+    // 認証チェック
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentication required');
+    }
+
+    const db = admin.firestore();
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    const caller = callerDoc.data();
+
+    // 管理者または自分自身のみ修正可能
+    const targetUserId = request.data?.userId || request.auth.uid;
+    if (targetUserId !== request.auth.uid && !caller?.isAdmin) {
+      throw new HttpsError('permission-denied', 'Admin access required');
+    }
+
+    const {
+      currentMonthStudyDays,
+      totalStudyDays,
+      currentStreak,
+      longestStreak,
+    } = request.data || {};
+
+    // 修正対象のユーザーを取得
+    const userDoc = await db.collection('users').doc(targetUserId).get();
+    if (!userDoc.exists) {
+      throw new HttpsError('not-found', 'User not found');
+    }
+
+    const userData = userDoc.data();
+    const currentStats = userData?.stats || {};
+
+    // 修正する統計データ
+    const updatedStats = {
+      ...currentStats,
+      ...(currentMonthStudyDays !== undefined && { currentMonthStudyDays }),
+      ...(totalStudyDays !== undefined && { totalStudyDays }),
+      ...(currentStreak !== undefined && { currentStreak }),
+      ...(longestStreak !== undefined && { longestStreak }),
+    };
+
+    // Firestoreを更新
+    await db.collection('users').doc(targetUserId).update({
+      stats: updatedStats,
+    });
+
+    console.log(`Stats fixed for user ${targetUserId}:`, updatedStats);
+
+    return {
+      success: true,
+      updatedStats,
+    };
+  }
+);
+
 export const githubWebhook = onRequest(
   {
     memory: '256MiB',
@@ -482,13 +646,22 @@ export const githubWebhook = onRequest(
 
     // 署名を検証
     const signature = req.headers['x-hub-signature-256'] as string | undefined;
-    const rawBody = JSON.stringify(req.body);
+    // Firebase Functions v2ではreq.rawBodyが利用可能
+    // req.rawBodyがない場合はBuffer.from()でrawBodyを再構築
+    const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody?.toString() || JSON.stringify(req.body);
+
+    console.log('Verifying signature for payload length:', rawBody.length);
 
     if (!verifyGitHubSignature(rawBody, signature, githubWebhookSecret.value())) {
+      // 署名検証失敗の詳細ログ
       console.error('Invalid GitHub webhook signature');
+      console.error('Signature received:', signature?.substring(0, 20) + '...');
+      console.error('Payload preview:', rawBody.substring(0, 100) + '...');
       res.status(401).send('Invalid signature');
       return;
     }
+
+    console.log('Signature verified successfully');
 
     try {
       const payload = req.body as GitHubPushPayload;

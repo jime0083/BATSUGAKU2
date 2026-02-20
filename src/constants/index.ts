@@ -76,15 +76,15 @@ export const TWEET_TEMPLATES = {
 
   // サボり投稿
   skip: (targetIncome: number, incomeType: string, skills: string[], monthCount: number, totalCount: number) =>
-    `私は${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万稼ぐエンジニアになるため${skills.join('、')}の学習をすると宣言したにも関わらずサボった愚かな人間です\n#今月${monthCount}回目 #累計${totalCount}回 ${HASHTAG}`,
+    `私は${incomeType === 'monthly' ? '月収' : '年収'}${targetIncome}万稼ぐエンジニアになるため${skills.join('、')}を毎日やると宣言したにも関わらずサボった愚かな人間です\n#今月${monthCount}回目 #累計${totalCount}回 ${HASHTAG}`,
 
   // 連続達成投稿
   streak: (skills: string[], days: number) =>
-    `${skills.join('、')}学習${days}日連続達成！ #${days}日連続 ${HASHTAG}`,
+    `${skills.join('、')}${days}日連続達成！ #${days}日連続 ${HASHTAG}`,
 
   // 管理者日次統計投稿
   dailyStats: (studyCount: number, skipCount: number) =>
-    `今日学習をした人：${studyCount}人、サボった人：${skipCount}人 ${HASHTAG}`,
+    `今日作業した人：${studyCount}人、サボった人：${skipCount}人 ${HASHTAG}`,
 
   // 通算日数達成投稿
   totalDaysAchievement: (deadline: string, skill: string, incomeType: string, targetIncome: number, totalDays: number) =>
@@ -99,11 +99,11 @@ export const TWEET_TEMPLATES = {
 export const NOTIFICATION_MESSAGES = {
   pushDetected: (days: number) => ({
     title: 'お疲れ様でした！',
-    body: days > 1 ? `これで${days}日連続！えらい！！` : '今日も学習ご苦労様',
+    body: days > 1 ? `これで${days}日連続！えらい！！` : '今日もお疲れ様',
   }),
   reminder23: {
-    title: '学習リマインダー',
-    body: '今日はまだ学習していないようです。0:00にサボり投稿が投稿されます。',
+    title: 'リマインダー',
+    body: '今日はまだ作業していないようです。0:00にサボり投稿が投稿されます。',
   },
   reminder2330: {
     title: '最終警告',

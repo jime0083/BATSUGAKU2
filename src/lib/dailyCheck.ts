@@ -86,7 +86,7 @@ export function shouldPostStreakTweet(user: User, streak: number): boolean {
  */
 export function generateSkipTweetText(user: User): string {
   if (!user.goal) {
-    return `学習をサボってしまいました... ${HASHTAG}`;
+    return `サボってしまいました... ${HASHTAG}`;
   }
 
   const { targetIncome, incomeType, skills } = user.goal;
@@ -95,7 +95,7 @@ export function generateSkipTweetText(user: User): string {
   const incomeTypeText = incomeType === 'monthly' ? '月収' : '年収';
   const skillsText = skills.join('、');
 
-  return `私は${incomeTypeText}${targetIncome}万稼ぐエンジニアになるため${skillsText}の学習をすると宣言したにも関わらず、学習をサボった愚かな人間です\n#今月${currentMonthSkipDays}回目 #累計${totalSkipDays}回 ${HASHTAG}`;
+  return `私は${incomeTypeText}${targetIncome}万稼ぐエンジニアになるため${skillsText}をやると宣言したにも関わらずサボった愚かな人間です\n#今月${currentMonthSkipDays}回目 #累計${totalSkipDays}回 ${HASHTAG}`;
 }
 
 /**
@@ -105,7 +105,7 @@ export function generateStreakTweetText(user: User, streak: number): string {
   const skills = user.goal?.skills || ['プログラミング'];
   const skillsText = skills.join('、');
 
-  return `${skillsText}学習${streak}日連続達成！ #${streak}日連続 ${HASHTAG}`;
+  return `${skillsText}${streak}日連続達成！ #${streak}日連続 ${HASHTAG}`;
 }
 
 /**

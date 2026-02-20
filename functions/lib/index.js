@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.githubWebhook = exports.getSubscriptionStatus = exports.verifyAndroidReceipt = exports.verifyIosReceipt = exports.getMonthlyStats = exports.getDailyStats = exports.checkSingleUser = exports.manualDailyCheck = exports.dailyAutoCheck = void 0;
+exports.githubWebhook = exports.fixUserStats = exports.getSubscriptionStatus = exports.verifyAndroidReceipt = exports.verifyIosReceipt = exports.getMonthlyStats = exports.getDailyStats = exports.checkSingleUser = exports.manualDailyCheck = exports.dailyReminderNotification = exports.dailyAutoCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const https_1 = require("firebase-functions/v2/https");
@@ -42,6 +42,7 @@ const dailyCheck_1 = require("./dailyCheck");
 const twitter_1 = require("./twitter");
 const receiptValidation_1 = require("./receiptValidation");
 const githubWebhook_1 = require("./githubWebhook");
+const pushNotification_1 = require("./pushNotification");
 // Firebase Admin初期化
 admin.initializeApp();
 // 環境変数（Firebase Functions secrets）
@@ -92,6 +93,87 @@ exports.dailyAutoCheck = (0, scheduler_1.onSchedule)({
     catch (error) {
         console.error('Daily auto check failed:', error);
         throw error;
+    }
+});
+/**
+ * 23:30リマインダー通知（毎日23:30 JST実行）
+ *
+ * まだGitHubにpushしていないユーザーにリマインダー通知を送信
+ */
+exports.dailyReminderNotification = (0, scheduler_1.onSchedule)({
+    schedule: '30 23 * * *', // 毎日23:30
+    timeZone: 'Asia/Tokyo', // JST
+    retryCount: 1,
+    memory: '256MiB',
+    timeoutSeconds: 300, // 5分
+}, async (_event) => {
+    var _a, _b, _c, _d, _e;
+    console.log('Starting daily reminder notification at', new Date().toISOString());
+    const db = admin.firestore();
+    // 今日の日付文字列（JST）
+    const now = new Date();
+    const jstOffset = 9 * 60 * 60 * 1000;
+    const jstNow = new Date(now.getTime() + jstOffset);
+    const today = jstNow.toISOString().split('T')[0];
+    // アクティブなユーザーを取得
+    const usersSnapshot = await db
+        .collection('users')
+        .where('onboardingCompleted', '==', true)
+        .where('githubLinked', '==', true)
+        .where('notificationsEnabled', '==', true)
+        .get();
+    let sentCount = 0;
+    let skippedCount = 0;
+    const errors = [];
+    for (const doc of usersSnapshot.docs) {
+        const user = Object.assign(Object.assign({}, doc.data()), { uid: doc.id });
+        // サブスクチェック（管理者はバイパス）
+        const hasAccess = user.isAdmin ||
+            (((_a = user.subscription) === null || _a === void 0 ? void 0 : _a.isActive) &&
+                user.subscription.expiresAt.toDate() > new Date());
+        if (!hasAccess) {
+            continue;
+        }
+        // fcmTokenがない場合はスキップ
+        if (!user.fcmToken) {
+            continue;
+        }
+        // 今日既にpushしているかチェック
+        const lastStudyDate = ((_d = (_c = (_b = user.stats) === null || _b === void 0 ? void 0 : _b.lastStudyDate) === null || _c === void 0 ? void 0 : _c.toDate) === null || _d === void 0 ? void 0 : _d.call(_c)) || null;
+        let lastStudyDateString = null;
+        if (lastStudyDate) {
+            const jstDate = new Date(lastStudyDate.getTime() + jstOffset);
+            lastStudyDateString = jstDate.toISOString().split('T')[0];
+        }
+        // 今日既にpushしている場合はスキップ
+        if (lastStudyDateString === today) {
+            skippedCount++;
+            continue;
+        }
+        // リマインダー通知を送信
+        try {
+            const result = await (0, pushNotification_1.sendReminderNotification)(user.fcmToken, ((_e = user.stats) === null || _e === void 0 ? void 0 : _e.currentStreak) || 0);
+            if (result.success) {
+                sentCount++;
+                console.log(`Reminder sent to user: ${user.uid}`);
+            }
+            else {
+                errors.push(`${user.uid}: ${result.error}`);
+            }
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            errors.push(`${user.uid}: ${errorMessage}`);
+            console.error(`Error sending reminder to ${user.uid}:`, error);
+        }
+    }
+    console.log('Daily reminder notification completed:', {
+        sentCount,
+        skippedCount,
+        errorCount: errors.length,
+    });
+    if (errors.length > 0) {
+        console.error('Errors during reminder notification:', errors);
     }
 });
 /**
@@ -357,13 +439,53 @@ exports.getSubscriptionStatus = (0, https_1.onCall)({
  * 4. Secret: GITHUB_WEBHOOK_SECRET と同じ値
  * 5. Events: "Just the push event" を選択
  */
+/**
+ * ユーザーの統計データを手動で修正（管理者用）
+ */
+exports.fixUserStats = (0, https_1.onCall)({
+    memory: '256MiB',
+    timeoutSeconds: 60,
+}, async (request) => {
+    var _a;
+    // 認証チェック
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Authentication required');
+    }
+    const db = admin.firestore();
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    const caller = callerDoc.data();
+    // 管理者または自分自身のみ修正可能
+    const targetUserId = ((_a = request.data) === null || _a === void 0 ? void 0 : _a.userId) || request.auth.uid;
+    if (targetUserId !== request.auth.uid && !(caller === null || caller === void 0 ? void 0 : caller.isAdmin)) {
+        throw new https_1.HttpsError('permission-denied', 'Admin access required');
+    }
+    const { currentMonthStudyDays, totalStudyDays, currentStreak, longestStreak, } = request.data || {};
+    // 修正対象のユーザーを取得
+    const userDoc = await db.collection('users').doc(targetUserId).get();
+    if (!userDoc.exists) {
+        throw new https_1.HttpsError('not-found', 'User not found');
+    }
+    const userData = userDoc.data();
+    const currentStats = (userData === null || userData === void 0 ? void 0 : userData.stats) || {};
+    // 修正する統計データ
+    const updatedStats = Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, currentStats), (currentMonthStudyDays !== undefined && { currentMonthStudyDays })), (totalStudyDays !== undefined && { totalStudyDays })), (currentStreak !== undefined && { currentStreak })), (longestStreak !== undefined && { longestStreak }));
+    // Firestoreを更新
+    await db.collection('users').doc(targetUserId).update({
+        stats: updatedStats,
+    });
+    console.log(`Stats fixed for user ${targetUserId}:`, updatedStats);
+    return {
+        success: true,
+        updatedStats,
+    };
+});
 exports.githubWebhook = (0, https_1.onRequest)({
     memory: '256MiB',
     timeoutSeconds: 60,
     secrets: [githubWebhookSecret, xClientId, xClientSecret],
     cors: false,
 }, async (req, res) => {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     // POSTメソッドのみ許可
     if (req.method !== 'POST') {
         res.status(405).send('Method Not Allowed');
@@ -378,23 +500,30 @@ exports.githubWebhook = (0, https_1.onRequest)({
     }
     // 署名を検証
     const signature = req.headers['x-hub-signature-256'];
-    const rawBody = JSON.stringify(req.body);
+    // Firebase Functions v2ではreq.rawBodyが利用可能
+    // req.rawBodyがない場合はBuffer.from()でrawBodyを再構築
+    const rawBody = ((_a = req.rawBody) === null || _a === void 0 ? void 0 : _a.toString()) || JSON.stringify(req.body);
+    console.log('Verifying signature for payload length:', rawBody.length);
     if (!(0, githubWebhook_1.verifyGitHubSignature)(rawBody, signature, githubWebhookSecret.value())) {
+        // 署名検証失敗の詳細ログ
         console.error('Invalid GitHub webhook signature');
+        console.error('Signature received:', (signature === null || signature === void 0 ? void 0 : signature.substring(0, 20)) + '...');
+        console.error('Payload preview:', rawBody.substring(0, 100) + '...');
         res.status(401).send('Invalid signature');
         return;
     }
+    console.log('Signature verified successfully');
     try {
         const payload = req.body;
-        const senderUsername = (_a = payload.sender) === null || _a === void 0 ? void 0 : _a.login;
+        const senderUsername = (_b = payload.sender) === null || _b === void 0 ? void 0 : _b.login;
         if (!senderUsername) {
             console.error('No sender username in payload');
             res.status(400).json({ error: 'No sender username' });
             return;
         }
         console.log('Received GitHub push from:', senderUsername);
-        console.log('Repository:', (_b = payload.repository) === null || _b === void 0 ? void 0 : _b.full_name);
-        console.log('Commits:', ((_c = payload.commits) === null || _c === void 0 ? void 0 : _c.length) || 0);
+        console.log('Repository:', (_c = payload.repository) === null || _c === void 0 ? void 0 : _c.full_name);
+        console.log('Commits:', ((_d = payload.commits) === null || _d === void 0 ? void 0 : _d.length) || 0);
         // pushイベントを処理（X認証情報を渡して達成ツイートを投稿）
         const result = await (0, githubWebhook_1.handleGitHubPush)(senderUsername, xClientId.value(), xClientSecret.value());
         console.log('GitHub push handled:', result);

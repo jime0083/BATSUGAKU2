@@ -5,6 +5,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendExpoPushNotification = sendExpoPushNotification;
 exports.sendGitHubPushNotification = sendGitHubPushNotification;
+exports.sendReminderNotification = sendReminderNotification;
 /**
  * Expo Push Notificationを送信
  */
@@ -60,10 +61,24 @@ async function sendGitHubPushNotification(expoPushToken, streakDays) {
     const title = 'お疲れ様でした！';
     const body = streakDays > 1
         ? `これで${streakDays}日連続！えらい！！`
-        : '今日も学習ご苦労様';
+        : '今日もお疲れ様';
     return sendExpoPushNotification(expoPushToken, title, body, {
         type: 'github_push',
         streakDays,
+    });
+}
+/**
+ * 23:30リマインダー通知を送信
+ * ユーザーがまだ今日pushしていない場合に送信される
+ */
+async function sendReminderNotification(expoPushToken, currentStreak) {
+    const title = 'まだpushしてないよ！';
+    const body = currentStreak > 0
+        ? `今日pushしないと${currentStreak}日連続の記録が途切れちゃうよ！`
+        : '今日もpushして記録を伸ばそう！';
+    return sendExpoPushNotification(expoPushToken, title, body, {
+        type: 'reminder',
+        currentStreak,
     });
 }
 //# sourceMappingURL=pushNotification.js.map

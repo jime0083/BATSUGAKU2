@@ -54,21 +54,21 @@ async function postTweet(accessToken, text) {
  */
 function generateSkipTweetText(user) {
     if (!user.goal) {
-        return `学習をサボりました ${HASHTAG}`;
+        return `サボりました ${HASHTAG}`;
     }
     const incomeText = user.goal.incomeType === 'monthly' ? '月収' : '年収';
     const skillsText = user.goal.skills.join('、');
     const monthCount = user.stats.currentMonthSkipDays + 1; // 今回の分を加算
     const totalCount = user.stats.totalSkipDays + 1;
-    return `私は${incomeText}${user.goal.targetIncome}万稼ぐエンジニアになるため${skillsText}の学習をすると宣言したにも関わらず、学習をサボった愚かな人間です\n#今月${monthCount}回目 #累計${totalCount}回 ${HASHTAG}`;
+    return `私は${incomeText}${user.goal.targetIncome}万稼ぐエンジニアになるため${skillsText}を毎日やると宣言したにも関わらずサボった愚かな人間です\n#今月${monthCount}回目 #累計${totalCount}回 ${HASHTAG}`;
 }
 /**
  * ストリーク達成ツイートのテキストを生成
  */
 function generateStreakTweetText(user, days) {
     var _a;
-    const skillsText = ((_a = user.goal) === null || _a === void 0 ? void 0 : _a.skills.join('、')) || '学習';
-    return `${skillsText}学習${days}日連続達成！ #${days}日連続 ${HASHTAG}`;
+    const skillsText = ((_a = user.goal) === null || _a === void 0 ? void 0 : _a.skills.join('、')) || 'プログラミング';
+    return `${skillsText}${days}日連続達成！ #${days}日連続 ${HASHTAG}`;
 }
 /**
  * 日付を「◯月◯日」形式にフォーマット
@@ -111,7 +111,7 @@ function generateStreakAchievementText(user, streakDays) {
  * 管理者用日次統計ツイートのテキストを生成
  */
 function generateDailyStatsTweetText(studyCount, skipCount) {
-    return `今日学習をした人：${studyCount}人、サボった人：${skipCount}人 ${HASHTAG}`;
+    return `今日作業した人：${studyCount}人、サボった人：${skipCount}人 ${HASHTAG}`;
 }
 /**
  * サボりツイートを投稿
