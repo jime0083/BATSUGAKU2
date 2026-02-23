@@ -107,88 +107,166 @@ export const dailyReminderNotification = onSchedule(
   },
   async (_event: ScheduledEvent) => {
     console.log('Starting daily reminder notification at', new Date().toISOString());
+    await sendDailyReminders();
+  }
+);
+
+/**
+ * リマインダー通知の実際の処理（スケジュール実行と手動実行で共有）
+ */
+async function sendDailyReminders(): Promise<{
+  totalUsers: number;
+  sentCount: number;
+  skippedAlreadyPushed: number;
+  skippedNoToken: number;
+  skippedNotificationsDisabled: number;
+  skippedNoAccess: number;
+  errorCount: number;
+}> {
+  const db = admin.firestore();
+
+  // 今日の日付文字列（JST）
+  const now = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstNow = new Date(now.getTime() + jstOffset);
+  const today = jstNow.toISOString().split('T')[0];
+
+  console.log('Today (JST):', today);
+
+  // アクティブなユーザーを取得（dailyCheck.tsと同じクエリ条件）
+  // notificationsEnabledはコード内でチェック（Firestoreでundefinedの場合に対応）
+  const usersSnapshot = await db
+    .collection('users')
+    .where('onboardingCompleted', '==', true)
+    .where('githubLinked', '==', true)
+    .get();
+
+  console.log('Found users with onboardingCompleted and githubLinked:', usersSnapshot.size);
+
+  let sentCount = 0;
+  let skippedAlreadyPushed = 0;
+  let skippedNoToken = 0;
+  let skippedNotificationsDisabled = 0;
+  let skippedNoAccess = 0;
+  const errors: string[] = [];
+
+  for (const doc of usersSnapshot.docs) {
+    const user = { ...doc.data(), uid: doc.id } as User;
+
+    // 通知が無効な場合はスキップ（undefinedの場合は有効として扱う）
+    if (user.notificationsEnabled === false) {
+      console.log(`User ${user.uid}: notifications disabled`);
+      skippedNotificationsDisabled++;
+      continue;
+    }
+
+    // サブスクチェック（管理者はバイパス）
+    const hasAccess =
+      user.isAdmin ||
+      (user.subscription?.isActive &&
+        user.subscription.expiresAt.toDate() > new Date());
+
+    if (!hasAccess) {
+      console.log(`User ${user.uid}: no active subscription`);
+      skippedNoAccess++;
+      continue;
+    }
+
+    // fcmTokenがない場合はスキップ
+    if (!user.fcmToken) {
+      console.log(`User ${user.uid}: no fcmToken`);
+      skippedNoToken++;
+      continue;
+    }
+
+    // 今日既にpushしているかチェック
+    const lastStudyDate = user.stats?.lastStudyDate?.toDate?.() || null;
+    let lastStudyDateString: string | null = null;
+    if (lastStudyDate) {
+      const jstDate = new Date(lastStudyDate.getTime() + jstOffset);
+      lastStudyDateString = jstDate.toISOString().split('T')[0];
+    }
+
+    // 今日既にpushしている場合はスキップ
+    if (lastStudyDateString === today) {
+      console.log(`User ${user.uid}: already pushed today`);
+      skippedAlreadyPushed++;
+      continue;
+    }
+
+    // リマインダー通知を送信
+    try {
+      console.log(`Sending reminder to user ${user.uid}, fcmToken: ${user.fcmToken.substring(0, 30)}...`);
+      const result = await sendReminderNotification(
+        user.fcmToken,
+        user.stats?.currentStreak || 0
+      );
+
+      if (result.success) {
+        sentCount++;
+        console.log(`Reminder sent successfully to user: ${user.uid}`);
+      } else {
+        errors.push(`${user.uid}: ${result.error}`);
+        console.error(`Failed to send reminder to ${user.uid}:`, result.error);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      errors.push(`${user.uid}: ${errorMessage}`);
+      console.error(`Error sending reminder to ${user.uid}:`, error);
+    }
+  }
+
+  const summary = {
+    totalUsers: usersSnapshot.size,
+    sentCount,
+    skippedAlreadyPushed,
+    skippedNoToken,
+    skippedNotificationsDisabled,
+    skippedNoAccess,
+    errorCount: errors.length,
+  };
+
+  console.log('Daily reminder notification completed:', summary);
+
+  if (errors.length > 0) {
+    console.error('Errors during reminder notification:', errors);
+  }
+
+  return summary;
+}
+
+/**
+ * 手動リマインダー通知（テスト用）
+ */
+export const manualReminderNotification = onCall(
+  {
+    memory: '256MiB',
+    timeoutSeconds: 60,
+  },
+  async (request) => {
+    // 認証チェック
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentication required');
+    }
 
     const db = admin.firestore();
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
 
-    // 今日の日付文字列（JST）
-    const now = new Date();
-    const jstOffset = 9 * 60 * 60 * 1000;
-    const jstNow = new Date(now.getTime() + jstOffset);
-    const today = jstNow.toISOString().split('T')[0];
-
-    // アクティブなユーザーを取得
-    const usersSnapshot = await db
-      .collection('users')
-      .where('onboardingCompleted', '==', true)
-      .where('githubLinked', '==', true)
-      .where('notificationsEnabled', '==', true)
-      .get();
-
-    let sentCount = 0;
-    let skippedCount = 0;
-    const errors: string[] = [];
-
-    for (const doc of usersSnapshot.docs) {
-      const user = { ...doc.data(), uid: doc.id } as User;
-
-      // サブスクチェック（管理者はバイパス）
-      const hasAccess =
-        user.isAdmin ||
-        (user.subscription?.isActive &&
-          user.subscription.expiresAt.toDate() > new Date());
-
-      if (!hasAccess) {
-        continue;
-      }
-
-      // fcmTokenがない場合はスキップ
-      if (!user.fcmToken) {
-        continue;
-      }
-
-      // 今日既にpushしているかチェック
-      const lastStudyDate = user.stats?.lastStudyDate?.toDate?.() || null;
-      let lastStudyDateString: string | null = null;
-      if (lastStudyDate) {
-        const jstDate = new Date(lastStudyDate.getTime() + jstOffset);
-        lastStudyDateString = jstDate.toISOString().split('T')[0];
-      }
-
-      // 今日既にpushしている場合はスキップ
-      if (lastStudyDateString === today) {
-        skippedCount++;
-        continue;
-      }
-
-      // リマインダー通知を送信
-      try {
-        const result = await sendReminderNotification(
-          user.fcmToken,
-          user.stats?.currentStreak || 0
-        );
-
-        if (result.success) {
-          sentCount++;
-          console.log(`Reminder sent to user: ${user.uid}`);
-        } else {
-          errors.push(`${user.uid}: ${result.error}`);
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        errors.push(`${user.uid}: ${errorMessage}`);
-        console.error(`Error sending reminder to ${user.uid}:`, error);
-      }
+    if (!userDoc.exists) {
+      throw new HttpsError('not-found', 'User not found');
     }
 
-    console.log('Daily reminder notification completed:', {
-      sentCount,
-      skippedCount,
-      errorCount: errors.length,
-    });
+    const user = { ...userDoc.data(), uid: userDoc.id } as User;
 
-    if (errors.length > 0) {
-      console.error('Errors during reminder notification:', errors);
+    // 管理者チェック
+    if (!user.isAdmin) {
+      throw new HttpsError('permission-denied', 'Admin access required');
     }
+
+    console.log('Manual reminder notification triggered by', request.auth.uid);
+
+    const result = await sendDailyReminders();
+    return { success: true, ...result };
   }
 );
 

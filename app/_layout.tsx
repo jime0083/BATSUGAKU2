@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
+import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { COLORS } from '../src/constants';
 import { hasPremiumAccess } from '../src/lib/subscription';
 import { useEffect } from 'react';
@@ -128,10 +129,12 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <StatusBar style="dark" />
-          <RootLayoutNav />
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <StatusBar style="dark" />
+            <RootLayoutNav />
+          </AuthProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -20,14 +20,31 @@ import { fetchGitHubUser } from '../lib/github';
 import { fetchXUser } from '../lib/twitter';
 import { Timestamp } from 'firebase/firestore';
 
-// WebBrowserの結果を完了させる
-WebBrowser.maybeCompleteAuthSession();
+// WebBrowserの結果を完了させる（安全に実行）
+try {
+  WebBrowser.maybeCompleteAuthSession();
+} catch (error) {
+  console.warn('WebBrowser.maybeCompleteAuthSession error:', error);
+}
 
-// Google Sign-Inの設定
-GoogleSignin.configure({
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-});
+// Google Sign-Inの設定を安全に実行
+let googleSignInConfigured = false;
+const configureGoogleSignIn = () => {
+  if (googleSignInConfigured) return;
+  try {
+    GoogleSignin.configure({
+      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    });
+    googleSignInConfigured = true;
+    console.log('Google Sign-In configured successfully');
+  } catch (error) {
+    console.error('Google Sign-In configuration error:', error);
+  }
+};
+
+// 初期設定を試行
+configureGoogleSignIn();
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -49,11 +66,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     revocationEndpoint: `https://github.com/settings/connections/applications/${githubClientId}`,
   };
 
-  // GitHub用リダイレクトURI
-  const githubRedirectUri = AuthSession.makeRedirectUri({
-    scheme: 'batsugaku',
-    path: 'auth/github',
-  });
+  // GitHub用リダイレクトURI（安全に生成）
+  const githubRedirectUri = (() => {
+    try {
+      return AuthSession.makeRedirectUri({
+        scheme: 'batsugaku',
+        path: 'auth/github',
+      });
+    } catch (error) {
+      console.error('GitHub redirect URI error:', error);
+      return 'batsugaku://auth/github';
+    }
+  })();
   console.log('=== GitHub Redirect URI ===', githubRedirectUri);
 
   const [githubRequest, githubResponse, githubPromptAsync] = AuthSession.useAuthRequest(
@@ -75,11 +99,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     revocationEndpoint: 'https://api.twitter.com/2/oauth2/revoke',
   };
 
-  // X用リダイレクトURI
-  const xRedirectUri = AuthSession.makeRedirectUri({
-    scheme: 'batsugaku',
-    path: 'auth/twitter',
-  });
+  // X用リダイレクトURI（安全に生成）
+  const xRedirectUri = (() => {
+    try {
+      return AuthSession.makeRedirectUri({
+        scheme: 'batsugaku',
+        path: 'auth/twitter',
+      });
+    } catch (error) {
+      console.error('X redirect URI error:', error);
+      return 'batsugaku://auth/twitter';
+    }
+  })();
   console.log('=== X Redirect URI ===', xRedirectUri);
 
   const [xRequest, xResponse, xPromptAsync] = AuthSession.useAuthRequest(

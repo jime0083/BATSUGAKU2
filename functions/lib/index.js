@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.githubWebhook = exports.fixUserStats = exports.getSubscriptionStatus = exports.verifyAndroidReceipt = exports.verifyIosReceipt = exports.getMonthlyStats = exports.getDailyStats = exports.checkSingleUser = exports.manualDailyCheck = exports.dailyReminderNotification = exports.dailyAutoCheck = void 0;
+exports.githubWebhook = exports.fixUserStats = exports.getSubscriptionStatus = exports.verifyAndroidReceipt = exports.verifyIosReceipt = exports.getMonthlyStats = exports.getDailyStats = exports.checkSingleUser = exports.manualDailyCheck = exports.manualReminderNotification = exports.dailyReminderNotification = exports.dailyAutoCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const https_1 = require("firebase-functions/v2/https");
@@ -107,35 +107,56 @@ exports.dailyReminderNotification = (0, scheduler_1.onSchedule)({
     memory: '256MiB',
     timeoutSeconds: 300, // 5分
 }, async (_event) => {
-    var _a, _b, _c, _d, _e;
     console.log('Starting daily reminder notification at', new Date().toISOString());
+    await sendDailyReminders();
+});
+/**
+ * リマインダー通知の実際の処理（スケジュール実行と手動実行で共有）
+ */
+async function sendDailyReminders() {
+    var _a, _b, _c, _d, _e;
     const db = admin.firestore();
     // 今日の日付文字列（JST）
     const now = new Date();
     const jstOffset = 9 * 60 * 60 * 1000;
     const jstNow = new Date(now.getTime() + jstOffset);
     const today = jstNow.toISOString().split('T')[0];
-    // アクティブなユーザーを取得
+    console.log('Today (JST):', today);
+    // アクティブなユーザーを取得（dailyCheck.tsと同じクエリ条件）
+    // notificationsEnabledはコード内でチェック（Firestoreでundefinedの場合に対応）
     const usersSnapshot = await db
         .collection('users')
         .where('onboardingCompleted', '==', true)
         .where('githubLinked', '==', true)
-        .where('notificationsEnabled', '==', true)
         .get();
+    console.log('Found users with onboardingCompleted and githubLinked:', usersSnapshot.size);
     let sentCount = 0;
-    let skippedCount = 0;
+    let skippedAlreadyPushed = 0;
+    let skippedNoToken = 0;
+    let skippedNotificationsDisabled = 0;
+    let skippedNoAccess = 0;
     const errors = [];
     for (const doc of usersSnapshot.docs) {
         const user = Object.assign(Object.assign({}, doc.data()), { uid: doc.id });
+        // 通知が無効な場合はスキップ（undefinedの場合は有効として扱う）
+        if (user.notificationsEnabled === false) {
+            console.log(`User ${user.uid}: notifications disabled`);
+            skippedNotificationsDisabled++;
+            continue;
+        }
         // サブスクチェック（管理者はバイパス）
         const hasAccess = user.isAdmin ||
             (((_a = user.subscription) === null || _a === void 0 ? void 0 : _a.isActive) &&
                 user.subscription.expiresAt.toDate() > new Date());
         if (!hasAccess) {
+            console.log(`User ${user.uid}: no active subscription`);
+            skippedNoAccess++;
             continue;
         }
         // fcmTokenがない場合はスキップ
         if (!user.fcmToken) {
+            console.log(`User ${user.uid}: no fcmToken`);
+            skippedNoToken++;
             continue;
         }
         // 今日既にpushしているかチェック
@@ -147,18 +168,21 @@ exports.dailyReminderNotification = (0, scheduler_1.onSchedule)({
         }
         // 今日既にpushしている場合はスキップ
         if (lastStudyDateString === today) {
-            skippedCount++;
+            console.log(`User ${user.uid}: already pushed today`);
+            skippedAlreadyPushed++;
             continue;
         }
         // リマインダー通知を送信
         try {
+            console.log(`Sending reminder to user ${user.uid}, fcmToken: ${user.fcmToken.substring(0, 30)}...`);
             const result = await (0, pushNotification_1.sendReminderNotification)(user.fcmToken, ((_e = user.stats) === null || _e === void 0 ? void 0 : _e.currentStreak) || 0);
             if (result.success) {
                 sentCount++;
-                console.log(`Reminder sent to user: ${user.uid}`);
+                console.log(`Reminder sent successfully to user: ${user.uid}`);
             }
             else {
                 errors.push(`${user.uid}: ${result.error}`);
+                console.error(`Failed to send reminder to ${user.uid}:`, result.error);
             }
         }
         catch (error) {
@@ -167,14 +191,45 @@ exports.dailyReminderNotification = (0, scheduler_1.onSchedule)({
             console.error(`Error sending reminder to ${user.uid}:`, error);
         }
     }
-    console.log('Daily reminder notification completed:', {
+    const summary = {
+        totalUsers: usersSnapshot.size,
         sentCount,
-        skippedCount,
+        skippedAlreadyPushed,
+        skippedNoToken,
+        skippedNotificationsDisabled,
+        skippedNoAccess,
         errorCount: errors.length,
-    });
+    };
+    console.log('Daily reminder notification completed:', summary);
     if (errors.length > 0) {
         console.error('Errors during reminder notification:', errors);
     }
+    return summary;
+}
+/**
+ * 手動リマインダー通知（テスト用）
+ */
+exports.manualReminderNotification = (0, https_1.onCall)({
+    memory: '256MiB',
+    timeoutSeconds: 60,
+}, async (request) => {
+    // 認証チェック
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Authentication required');
+    }
+    const db = admin.firestore();
+    const userDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (!userDoc.exists) {
+        throw new https_1.HttpsError('not-found', 'User not found');
+    }
+    const user = Object.assign(Object.assign({}, userDoc.data()), { uid: userDoc.id });
+    // 管理者チェック
+    if (!user.isAdmin) {
+        throw new https_1.HttpsError('permission-denied', 'Admin access required');
+    }
+    console.log('Manual reminder notification triggered by', request.auth.uid);
+    const result = await sendDailyReminders();
+    return Object.assign({ success: true }, result);
 });
 /**
  * 手動日次チェック（管理者用またはテスト用）
