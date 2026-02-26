@@ -1,25 +1,27 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useAuth } from '../../src/contexts/AuthContext';
 
 const PRIVACY_POLICY_URL = 'https://batugaku2-ad498.web.app/privacy-policy.html';
 const TERMS_URL = 'https://batugaku2-ad498.web.app/terms-of-service.html';
 
 export default function LoginScreen() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, signInWithApple } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingProvider, setLoadingProvider] = useState<'google' | 'apple' | null>(null);
 
-  const handleLogin = async () => {
+  const handleGoogleLogin = async () => {
     if (isLoading) return;
 
     setIsLoading(true);
+    setLoadingProvider('google');
     try {
-      console.log('=== Login Button Pressed ===');
+      console.log('=== Google Login Button Pressed ===');
       await signInWithGoogle();
       console.log('=== signInWithGoogle completed successfully ===');
-      // ログイン成功時は_layout.tsxが自動的に次の画面に遷移させる
     } catch (error: any) {
       console.error('=== Login Error Caught ===');
       console.error('Error:', error);
@@ -27,7 +29,6 @@ export default function LoginScreen() {
       const errorMessage = error instanceof Error ? error.message : 'ログインに失敗しました';
       console.error('Error message to display:', errorMessage);
 
-      // キャンセルの場合はアラートを表示しない
       if (!errorMessage.includes('キャンセル')) {
         Alert.alert(
           'ログインエラー',
@@ -36,6 +37,31 @@ export default function LoginScreen() {
       }
     } finally {
       setIsLoading(false);
+      setLoadingProvider(null);
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    if (isLoading) return;
+
+    setIsLoading(true);
+    setLoadingProvider('apple');
+    try {
+      console.log('=== Apple Login Button Pressed ===');
+      await signInWithApple();
+      console.log('=== signInWithApple completed successfully ===');
+    } catch (error: any) {
+      console.error('=== Apple Login Error Caught ===');
+      console.error('Error:', error);
+
+      const errorMessage = error instanceof Error ? error.message : 'ログインに失敗しました';
+
+      if (!errorMessage.includes('キャンセル')) {
+        Alert.alert('ログインエラー', errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
+      setLoadingProvider(null);
     }
   };
 
@@ -69,13 +95,25 @@ export default function LoginScreen() {
 
         {/* ログインボタン */}
         <View style={styles.loginSection}>
+          {/* Apple Sign In ボタン（iOS のみ） */}
+          {Platform.OS === 'ios' && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={30}
+              style={styles.appleButton}
+              onPress={handleAppleLogin}
+            />
+          )}
+
+          {/* Google ログインボタン */}
           <TouchableOpacity
             style={[styles.googleButton, isLoading && styles.googleButtonDisabled]}
-            onPress={handleLogin}
+            onPress={handleGoogleLogin}
             activeOpacity={0.8}
             disabled={isLoading}
           >
-            {isLoading ? (
+            {loadingProvider === 'google' ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#4285F4" />
                 <Text style={styles.googleButtonText}>ログイン中...</Text>
@@ -135,6 +173,11 @@ const styles = StyleSheet.create({
   loginSection: {
     alignItems: 'center',
     marginTop: 24,
+    gap: 12,
+  },
+  appleButton: {
+    width: '100%',
+    height: 54,
   },
   googleButton: {
     alignItems: 'center',

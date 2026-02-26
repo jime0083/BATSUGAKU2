@@ -7,10 +7,14 @@ import {
   ActivityIndicator,
   ScrollView,
   Modal,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants';
 import { UseSubscriptionReturn } from '../hooks/useSubscription';
+
+const PRIVACY_POLICY_URL = 'https://batugaku2-ad498.web.app/privacy-policy.html';
+const TERMS_URL = 'https://batugaku2-ad498.web.app/terms-of-service.html';
 
 interface PaywallScreenProps {
   visible: boolean;
@@ -153,19 +157,26 @@ export function PaywallScreen({ visible, onClose, subscription }: PaywallScreenP
             </TouchableOpacity>
           </View>
 
+          {/* サブスクリプション詳細 */}
+          <View style={styles.subscriptionDetails}>
+            <Text style={styles.subscriptionDetailItem}>• サブスクリプション名: バツガクプレミアム（月額）</Text>
+            <Text style={styles.subscriptionDetailItem}>• 期間: 1ヶ月</Text>
+            <Text style={styles.subscriptionDetailItem}>• 価格: {getPrice()}/月（税込）</Text>
+          </View>
+
           {/* 注意事項 */}
           <View style={styles.termsSection}>
             <Text style={styles.termsText}>
-              購入確認時にiTunesアカウントに請求されます。
+              購入確認時にApple IDアカウントに請求されます。
               サブスクリプションは現在の期間が終了する24時間前までにキャンセルしない限り、
-              自動的に更新されます。
+              自動的に更新されます。アカウント設定からいつでもキャンセルできます。
             </Text>
             <View style={styles.termsLinks}>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => Linking.openURL(TERMS_URL)}>
                 <Text style={styles.termLink}>利用規約</Text>
               </TouchableOpacity>
               <Text style={styles.termsDivider}>|</Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
                 <Text style={styles.termLink}>プライバシーポリシー</Text>
               </TouchableOpacity>
             </View>
@@ -318,6 +329,17 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  subscriptionDetails: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  subscriptionDetailItem: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
   },
   termsSection: {
     alignItems: 'center',

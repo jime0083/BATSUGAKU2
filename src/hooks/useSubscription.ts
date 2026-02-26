@@ -236,10 +236,7 @@ export function useSubscription(user: User | null): UseSubscriptionReturn {
         return formatPrice(product);
       }
     }
-    // デフォルト価格
-    if (productId === PRODUCT_IDS.YEARLY_3000) {
-      return '¥3,000';
-    }
+    // デフォルト価格（月額プラン）
     return '¥300';
   }, [state.products]);
 

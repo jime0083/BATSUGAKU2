@@ -4,6 +4,7 @@ import {
   signInWithCredential,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
+  OAuthProvider,
   User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
@@ -12,8 +13,10 @@ import {
   statusCodes,
   isErrorWithCode,
 } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import * as Crypto from 'expo-crypto';
 import { auth, db } from '../lib/firebase';
 import { User, AuthContextType } from '../types';
 import { fetchGitHubUser } from '../lib/github';
@@ -414,6 +417,80 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Appleログイン
+  const signInWithApple = async () => {
+    try {
+      console.log('=== Apple Sign-In Start ===');
+
+      // nonceを生成
+      const nonce = Math.random().toString(36).substring(2, 10);
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        nonce
+      );
+      console.log('Generated nonce hash');
+
+      // Apple認証を実行
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      console.log('Apple Sign-In credential received');
+
+      if (!credential.identityToken) {
+        throw new Error('Apple認証トークンが取得できませんでした');
+      }
+
+      // Firebase認証情報を作成
+      const provider = new OAuthProvider('apple.com');
+      const oauthCredential = provider.credential({
+        idToken: credential.identityToken,
+        rawNonce: nonce,
+      });
+
+      // Firebaseでサインイン
+      console.log('Signing in to Firebase with Apple credential...');
+      const firebaseResult = await signInWithCredential(auth, oauthCredential);
+      console.log('=== Firebase sign-in successful ===');
+      console.log('User UID:', firebaseResult.user.uid);
+
+      // Apple認証の場合、初回のみ名前が取得できる
+      // Firestoreに名前を保存
+      if (credential.fullName?.givenName || credential.fullName?.familyName) {
+        const displayName = [
+          credential.fullName?.familyName,
+          credential.fullName?.givenName,
+        ].filter(Boolean).join(' ');
+
+        if (displayName) {
+          const userRef = doc(db, 'users', firebaseResult.user.uid);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            const userData = userSnap.data() as User;
+            if (!userData.displayName) {
+              await updateDoc(userRef, { displayName });
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('=== Apple Sign-In Error ===');
+      console.error('Error code:', error?.code);
+      console.error('Error message:', error?.message);
+
+      if (error?.code === 'ERR_REQUEST_CANCELED') {
+        throw new Error('ログインがキャンセルされました');
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Appleログインに失敗しました';
+      throw new Error(errorMessage);
+    }
+  };
+
   // ログアウト
   const signOut = async () => {
     try {
@@ -550,6 +627,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     loading,
     signInWithGoogle,
+    signInWithApple,
     signOut,
     linkXAccount,
     linkGitHubAccount,

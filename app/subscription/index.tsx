@@ -24,15 +24,9 @@ export default function SubscriptionScreen() {
   const subscription = useSubscription(user);
   const { isLoading, error, purchase, restore, PRODUCT_IDS } = subscription;
 
-  const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
-
   const handlePurchase = async () => {
-    const productId = selectedPlan === 'yearly'
-      ? PRODUCT_IDS.YEARLY_3000
-      : PRODUCT_IDS.MONTHLY_300;
-
     try {
-      const success = await purchase(productId);
+      const success = await purchase(PRODUCT_IDS.MONTHLY_300);
 
       if (success && user) {
         // Firestoreから最新のユーザーデータを取得してローカル状態を更新
@@ -113,46 +107,26 @@ export default function SubscriptionScreen() {
         <View style={styles.planSection}>
           <Text style={styles.planLabel}>プラン</Text>
 
-          {/* 年額プラン */}
-          <TouchableOpacity
-            style={[
-              styles.planCard,
-              selectedPlan === 'yearly' && styles.planCardSelected,
-            ]}
-            onPress={() => setSelectedPlan('yearly')}
-            activeOpacity={0.8}
-          >
-            {/* 割引バッジ */}
-            <View style={styles.discountBadge}>
-              <Text style={styles.discountBadgeText}>16.7% OFF</Text>
-            </View>
-
-            <View style={styles.planCardContent}>
-              <Text style={styles.planDuration}>12ヶ月</Text>
-              <View style={styles.planPriceContainer}>
-                <Text style={styles.planOriginalPrice}>¥3600</Text>
-                <Text style={styles.planPrice}>¥3000</Text>
-                <Text style={styles.planPricePerMonth}>¥250/月</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
           {/* 月額プラン */}
-          <TouchableOpacity
-            style={[
-              styles.planCard,
-              selectedPlan === 'monthly' && styles.planCardSelected,
-            ]}
-            onPress={() => setSelectedPlan('monthly')}
-            activeOpacity={0.8}
-          >
+          <View style={[styles.planCard, styles.planCardSelected]}>
             <View style={styles.planCardContent}>
-              <Text style={styles.planDuration}>1ヶ月</Text>
+              <View>
+                <Text style={styles.planName}>バツガクプレミアム</Text>
+                <Text style={styles.planDuration}>月額プラン</Text>
+              </View>
               <View style={styles.planPriceContainer}>
-                <Text style={styles.planPriceMonthly}>¥300/月</Text>
+                <Text style={styles.planPrice}>¥300</Text>
+                <Text style={styles.planPriceUnit}>/月</Text>
               </View>
             </View>
-          </TouchableOpacity>
+          </View>
+
+          {/* サブスクリプション詳細情報 */}
+          <View style={styles.subscriptionDetails}>
+            <Text style={styles.subscriptionDetailItem}>• サブスクリプション期間: 1ヶ月</Text>
+            <Text style={styles.subscriptionDetailItem}>• 価格: 月額¥300（税込）</Text>
+            <Text style={styles.subscriptionDetailItem}>• 自動更新: 期間終了の24時間前までにキャンセルしない限り自動更新</Text>
+          </View>
         </View>
 
         {/* エラー表示 */}
@@ -184,6 +158,15 @@ export default function SubscriptionScreen() {
           >
             <Text style={styles.restoreButtonText}>購入を復元</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* 注意事項 */}
+        <View style={styles.termsSection}>
+          <Text style={styles.termsText}>
+            購入確認時にApple IDアカウントに請求されます。
+            サブスクリプションは現在の期間が終了する24時間前までにキャンセルしない限り自動的に更新されます。
+            アカウント設定からいつでもキャンセルできます。
+          </Text>
         </View>
 
         {/* フッター */}
@@ -278,32 +261,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  planName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 2,
+  },
   planDuration: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
-  },
-  planPriceContainer: {
-    alignItems: 'flex-end',
-  },
-  planOriginalPrice: {
-    fontSize: 12,
-    color: '#999999',
-    textDecorationLine: 'line-through',
-  },
-  planPrice: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
-  },
-  planPricePerMonth: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666666',
   },
-  planPriceMonthly: {
-    fontSize: 20,
+  planPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  planPrice: {
+    fontSize: 28,
     fontWeight: '700',
     color: '#1a1a1a',
+  },
+  planPriceUnit: {
+    fontSize: 14,
+    color: '#666666',
+    marginLeft: 2,
+  },
+  subscriptionDetails: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+  subscriptionDetailItem: {
+    fontSize: 12,
+    color: '#666666',
+    lineHeight: 20,
   },
   errorContainer: {
     backgroundColor: '#ffebee',
@@ -341,6 +332,15 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  termsSection: {
+    marginBottom: 16,
+  },
+  termsText: {
+    fontSize: 11,
+    color: '#999999',
+    textAlign: 'center',
+    lineHeight: 16,
   },
   footer: {
     alignItems: 'center',
