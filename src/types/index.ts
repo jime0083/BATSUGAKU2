@@ -144,6 +144,7 @@ export interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   linkXAccount: () => Promise<void>;
   linkGitHubAccount: () => Promise<void>;
   unlinkXAccount: () => Promise<void>;

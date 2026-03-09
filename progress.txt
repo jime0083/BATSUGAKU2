@@ -2,52 +2,54 @@
 BATSUGAKU (バツガク) - 実装進捗管理
 ================================================================================
 
-最終更新: 2026-02-25
+最終更新: 2026-03-09
 ※ 完了済みタスクの詳細は progress-archive.txt を参照
 
 ================================================================================
 残タスク
 ================================================================================
 
-■ Phase 17: App Store審査却下対応（2026-02-25 却下）
+■ Phase 18: App Store審査2回目却下対応（2026-03-09 却下）
 --------------------------------------------------------------------------------
 
-【Guideline 4.8 - Login Services】
-[x] 17.1 Sign in with Apple実装                         ← 完了: 2026-02-25
-    - [x] expo-apple-authenticationパッケージ追加
-    - [x] app.jsonにプラグイン追加
-    - [x] AppleログインボタンをログインUIに追加
-    - [x] AuthContextにApple認証フロー追加
+【Guideline 2.1(a) - Sign in with Apple エラー】
+[x] 18.1 iPad対応のApple認証エラーハンドリング改善       ← 完了: 2026-03-09
+    - [x] isAvailableAsync()でデバイス対応チェック追加
+    - [x] ERR_REQUEST_CANCELED等のエラーコード対応
+    - [x] ERR_INVALID_OPERATION時にGoogleログイン誘導メッセージ
     - [x] 型チェック通過
-    ※ Firebase Console設定は手動作業（manual-work.txt参照）
 
-【Guideline 2.1 - App Completeness (バグ修正)】
-[x] 17.2 Invalid product IDエラー修正                   ← 完了: 2026-02-25
-    - [x] 原因特定: 年額プラン（YEARLY_3000）がApp Store Connectに未設定
-    - [x] iapService.tsからYEARLY_3000を削除
-    - [x] subscription画面を月額プランのみに変更
-    ※ iPad実機テストは再ビルド後に実施
+【Guideline 5.1.1(v) - アカウント削除機能】
+[x] 18.2 アカウント削除機能実装                           ← 完了: 2026-03-09
+    - [x] AuthContextにdeleteAccount関数追加
+    - [x] dailyLogsサブコレクションを削除
+    - [x] ユーザードキュメントを削除
+    - [x] Firebase Authアカウントを削除
+    - [x] 設定画面に削除ボタン追加（2段階確認ダイアログ付き）
+    - [x] 型定義(AuthContextType)を更新
+    - [x] 型チェック通過
 
-【Guideline 3.1.2 - Subscriptions (アプリ内情報)】
-[x] 17.3 サブスク画面に必要情報を追加                   ← 完了: 2026-02-25
-    - [x] サブスクリプション名（バツガクプレミアム）を明示
-    - [x] 期間（1ヶ月）を明示
-    - [x] 価格（¥300/月）を明示
-    - [x] 自動更新に関する説明を追加
-    - [x] 利用規約リンクを機能させる
-    - [x] プライバシーポリシーリンクを機能させる
+【Guideline 3.1.2(c) - 利用規約/プライバシーポリシーリンク】
+[x] 18.3 リンク機能の改善                                 ← 完了: 2026-03-09
+    - [x] canOpenURL()でリンク確認後に開く
+    - [x] エラーハンドリング追加
+    - [x] firebase.jsonにhosting設定追加
+    - [x] publicディレクトリにHTMLファイル配置
 
-【手動作業 - App Store Connect】※ manual-work.txt参照
-[ ] 17.4 App Store Connect設定
-    - [ ] Firebase ConsoleでApple認証を有効化
-    - [ ] IAPを審査に提出（Ready to Submit状態にする）
-    - [ ] App Store説明文に「月額300円のサブスク必要」を明記
-    - [ ] 利用規約(EULA)URLをメタデータに追加
-    - [ ] スクリーンショット更新（有料機能を明示）
+【手動作業】※ manual-work.txt参照
+[ ] 18.4 Firebase Hostingデプロイ
+    - [ ] firebase deploy --only hosting 実行
+    - [ ] URLが正常にアクセス可能か確認
 
-[ ] 17.5 再ビルド・再提出
+【Guideline 2.1(b) - IAP審査提出】
+[ ] 18.5 IAPを「審査に提出」状態にする                   ← 手動作業
+    - [ ] App Store Connect > App内課金 > ステータス確認
+    - [ ] スクリーンショット追加
+    - [ ] 審査に提出
+
+[ ] 18.6 再ビルド・再提出
     - [ ] npx expo prebuild --platform ios --clean
-    - [ ] Xcodeでビルド・アーカイブ
+    - [ ] Xcodeでビルド・アーカイブ（Release設定）
     - [ ] App Store Connectにアップロード
     - [ ] 審査再提出
 

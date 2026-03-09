@@ -7,7 +7,7 @@ import {
   OAuthProvider,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, collection, getDocs, writeBatch } from 'firebase/firestore';
 import {
   GoogleSignin,
   statusCodes,
@@ -422,6 +422,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log('=== Apple Sign-In Start ===');
 
+      // Apple Sign Inが利用可能かチェック
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      console.log('Apple Sign-In available:', isAvailable);
+
+      if (!isAvailable) {
+        throw new Error('このデバイスではAppleログインが利用できません。Googleアカウントでログインしてください。');
+      }
+
       // nonceを生成
       const nonce = Math.random().toString(36).substring(2, 10);
       const hashedNonce = await Crypto.digestStringAsync(
@@ -440,9 +448,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       console.log('Apple Sign-In credential received');
+      console.log('Credential user:', credential.user);
+      console.log('Credential email:', credential.email);
 
       if (!credential.identityToken) {
-        throw new Error('Apple認証トークンが取得できませんでした');
+        throw new Error('Apple認証トークンが取得できませんでした。再度お試しください。');
       }
 
       // Firebase認証情報を作成
@@ -481,12 +491,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('=== Apple Sign-In Error ===');
       console.error('Error code:', error?.code);
       console.error('Error message:', error?.message);
+      console.error('Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
 
-      if (error?.code === 'ERR_REQUEST_CANCELED') {
+      // ユーザーがキャンセルした場合
+      if (error?.code === 'ERR_REQUEST_CANCELED' || error?.code === 'ERR_CANCELED') {
         throw new Error('ログインがキャンセルされました');
       }
 
-      const errorMessage = error instanceof Error ? error.message : 'Appleログインに失敗しました';
+      // Apple認証エラー
+      if (error?.code === 'ERR_INVALID_OPERATION') {
+        throw new Error('Appleログインの設定に問題があります。Googleアカウントでログインしてください。');
+      }
+
+      // Firebase認証エラー
+      if (error?.code === 'auth/invalid-credential') {
+        throw new Error('認証に失敗しました。再度お試しください。');
+      }
+
+      if (error?.code === 'auth/operation-not-allowed') {
+        throw new Error('Appleログインが有効になっていません。管理者にお問い合わせください。');
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Appleログインに失敗しました。Googleアカウントでログインしてください。';
       throw new Error(errorMessage);
     }
   };
@@ -623,12 +649,68 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
   }, []);
 
+  // アカウント削除
+  const deleteAccount = useCallback(async () => {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser || !user) {
+      throw new Error('ユーザーがログインしていません');
+    }
+
+    try {
+      console.log('=== Account Deletion Start ===');
+      console.log('User UID:', firebaseUser.uid);
+
+      // 1. dailyLogsサブコレクションを削除
+      console.log('Deleting dailyLogs...');
+      const dailyLogsRef = collection(db, 'users', firebaseUser.uid, 'dailyLogs');
+      const dailyLogsSnapshot = await getDocs(dailyLogsRef);
+
+      if (!dailyLogsSnapshot.empty) {
+        const batch = writeBatch(db);
+        dailyLogsSnapshot.docs.forEach((docSnapshot) => {
+          batch.delete(docSnapshot.ref);
+        });
+        await batch.commit();
+        console.log(`Deleted ${dailyLogsSnapshot.size} dailyLogs`);
+      }
+
+      // 2. ユーザードキュメントを削除
+      console.log('Deleting user document...');
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await deleteDoc(userRef);
+      console.log('User document deleted');
+
+      // 3. Firebase Authアカウントを削除
+      console.log('Deleting Firebase Auth account...');
+      await firebaseUser.delete();
+      console.log('Firebase Auth account deleted');
+
+      // 4. ローカル状態をクリア
+      setUser(null);
+
+      console.log('=== Account Deletion Complete ===');
+    } catch (error: any) {
+      console.error('=== Account Deletion Error ===');
+      console.error('Error code:', error?.code);
+      console.error('Error message:', error?.message);
+
+      // 再認証が必要な場合
+      if (error?.code === 'auth/requires-recent-login') {
+        throw new Error('セキュリティのため、アカウントを削除するには再度ログインが必要です。一度ログアウトしてから再度ログインし、もう一度お試しください。');
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'アカウントの削除に失敗しました';
+      throw new Error(errorMessage);
+    }
+  }, [user]);
+
   const value: AuthContextType = {
     user,
     loading,
     signInWithGoogle,
     signInWithApple,
     signOut,
+    deleteAccount,
     linkXAccount,
     linkGitHubAccount,
     unlinkXAccount,

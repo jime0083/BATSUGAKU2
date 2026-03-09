@@ -23,10 +23,11 @@ const COLORS = {
 };
 
 export default function SettingsScreen() {
-  const { user, signOut, linkXAccount, linkGitHubAccount, unlinkXAccount, unlinkGitHubAccount, updateUser } = useAuth();
+  const { user, signOut, deleteAccount, linkXAccount, linkGitHubAccount, unlinkXAccount, unlinkGitHubAccount, updateUser } = useAuth();
   const [linkingGitHub, setLinkingGitHub] = useState(false);
   const [linkingX, setLinkingX] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const subscription = useSubscription(user);
 
   const handleSignOut = () => {
@@ -36,6 +37,45 @@ export default function SettingsScreen() {
       [
         { text: 'キャンセル', style: 'cancel' },
         { text: 'ログアウト', style: 'destructive', onPress: signOut },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'アカウント削除',
+      'アカウントを削除すると、すべてのデータが完全に削除され、元に戻すことはできません。本当に削除しますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除する',
+          style: 'destructive',
+          onPress: () => {
+            // 二重確認
+            Alert.alert(
+              '最終確認',
+              '本当にアカウントを削除しますか？この操作は取り消せません。',
+              [
+                { text: 'キャンセル', style: 'cancel' },
+                {
+                  text: '削除する',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeletingAccount(true);
+                    try {
+                      await deleteAccount();
+                      // 削除成功時は自動的にログアウトされる
+                    } catch (error: any) {
+                      Alert.alert('エラー', error.message || 'アカウントの削除に失敗しました');
+                    } finally {
+                      setDeletingAccount(false);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
       ]
     );
   };
@@ -321,6 +361,17 @@ export default function SettingsScreen() {
             <TouchableOpacity style={styles.dangerButton} onPress={handleSignOut}>
               <Text style={styles.dangerButtonText}>ログアウト</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteAccountButton}
+              onPress={handleDeleteAccount}
+              disabled={deletingAccount}
+            >
+              {deletingAccount ? (
+                <ActivityIndicator size="small" color={COLORS.error} />
+              ) : (
+                <Text style={styles.deleteAccountButtonText}>アカウントを削除</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -330,7 +381,7 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
               <Text style={styles.settingLabel}>バージョン</Text>
-              <Text style={styles.settingValue}>1.0.0</Text>
+              <Text style={styles.settingValue}>1.0.2</Text>
             </View>
           </View>
         </View>
@@ -550,5 +601,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  deleteAccountButton: {
+    marginTop: 12,
+    backgroundColor: 'transparent',
+    borderRadius: 30,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.error,
+  },
+  deleteAccountButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.error,
   },
 });

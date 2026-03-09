@@ -16,8 +16,8 @@ import { useSubscription } from '../../src/hooks/useSubscription';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../src/lib/firebase';
 
-const PRIVACY_POLICY_URL = 'https://batugaku2-ad498.web.app/privacy-policy.html';
-const TERMS_URL = 'https://batugaku2-ad498.web.app/terms-of-service.html';
+const PRIVACY_POLICY_URL = 'https://batsugaku.web.app/privacy-policy.html';
+const TERMS_URL = 'https://batsugaku.web.app/terms-of-service.html';
 
 export default function SubscriptionScreen() {
   const { user, updateUser } = useAuth();
@@ -71,12 +71,32 @@ export default function SubscriptionScreen() {
     }
   };
 
-  const handleOpenTerms = () => {
-    Linking.openURL(TERMS_URL);
+  const handleOpenTerms = async () => {
+    try {
+      const canOpen = await Linking.canOpenURL(TERMS_URL);
+      if (canOpen) {
+        await Linking.openURL(TERMS_URL);
+      } else {
+        Alert.alert('エラー', '利用規約を開けませんでした。後でもう一度お試しください。');
+      }
+    } catch (error) {
+      console.error('Error opening terms URL:', error);
+      Alert.alert('エラー', '利用規約を開けませんでした。');
+    }
   };
 
-  const handleOpenPrivacy = () => {
-    Linking.openURL(PRIVACY_POLICY_URL);
+  const handleOpenPrivacy = async () => {
+    try {
+      const canOpen = await Linking.canOpenURL(PRIVACY_POLICY_URL);
+      if (canOpen) {
+        await Linking.openURL(PRIVACY_POLICY_URL);
+      } else {
+        Alert.alert('エラー', 'プライバシーポリシーを開けませんでした。後でもう一度お試しください。');
+      }
+    } catch (error) {
+      console.error('Error opening privacy URL:', error);
+      Alert.alert('エラー', 'プライバシーポリシーを開けませんでした。');
+    }
   };
 
   return (
