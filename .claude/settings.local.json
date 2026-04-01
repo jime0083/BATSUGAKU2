@@ -5,7 +5,9 @@
       "Bash(npx tsc:*)",
       "Bash(npm test:*)",
       "Bash(firebase deploy:*)",
-      "WebFetch(domain:batsugaku.web.app)"
+      "WebFetch(domain:batsugaku.web.app)",
+      "Bash(npx expo prebuild:*)",
+      "Bash(open:*)"
     ]
   }
 }

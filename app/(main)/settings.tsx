@@ -381,7 +381,7 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
               <Text style={styles.settingLabel}>バージョン</Text>
-              <Text style={styles.settingValue}>1.0.2</Text>
+              <Text style={styles.settingValue}>1.1.1</Text>
             </View>
           </View>
         </View>
