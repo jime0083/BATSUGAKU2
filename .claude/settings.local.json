@@ -7,7 +7,8 @@
       "Bash(firebase deploy:*)",
       "WebFetch(domain:batsugaku.web.app)",
       "Bash(npx expo prebuild:*)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }
