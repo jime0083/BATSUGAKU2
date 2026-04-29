@@ -107,11 +107,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       return AuthSession.makeRedirectUri({
         scheme: 'batsugaku',
-        path: 'auth/twitter',
       });
     } catch (error) {
       console.error('X redirect URI error:', error);
-      return 'batsugaku://auth/twitter';
+      return 'batsugaku://';
     }
   })();
   console.log('=== X Redirect URI ===', xRedirectUri);
@@ -252,7 +251,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
             code,
             redirect_uri: AuthSession.makeRedirectUri({
               scheme: 'batsugaku',
-              path: 'auth/twitter',
             }),
             client_id: xClientId,
             code_verifier: xRequest.codeVerifier,
